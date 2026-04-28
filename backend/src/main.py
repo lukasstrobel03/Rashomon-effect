@@ -385,6 +385,8 @@ def _create_cat_plot(model_path, feat_data: dict, feat: str):
         plt.step(feat_data["names"], y_values, where="post")
         plt.savefig(f"{model_path}/jpg/{feat}.jpg", format="jpg", dpi=300)
         plt.savefig(f"{model_path}/svg/{feat}.svg", format="svg")
+    except FileNotFoundError as e:
+        logger.error(f"Could not create Categorical Plot: {e}")
     finally:
         plt.close()
 
@@ -421,6 +423,7 @@ def _create_num_plot(model_path, feat_data: dict, feat: str, model: ModelWrapper
 
 
 def _create_interaction_plot(model_path, feat_data: dict, feat_name: str):
+    safe_feat_name = feat_name.replace(" & ", "__x__").replace(" ", "_")
     fig, ax = plt.subplots()
     try: 
         im = ax.pcolormesh(
@@ -434,8 +437,10 @@ def _create_interaction_plot(model_path, feat_data: dict, feat_name: str):
         plt.xlabel(feature_name_left)
         plt.ylabel(feature_name_right)
         plt.title(f"Feature: {feature_name_right} x {feature_name_left}")
-        plt.savefig(f"{model_path}/jpg/{feat_name}.jpg", format="jpg", dpi=300)
-        plt.savefig(f"{model_path}/svg/{feat_name}.svg", format="svg")
+        plt.savefig(f"{model_path}/jpg/{safe_feat_name}.jpg", format="jpg", dpi=300)
+        plt.savefig(f"{model_path}/svg/{safe_feat_name}.svg", format="svg")
+    except FileNotFoundError as e:
+        logger.error(f"Plot could not be created: {e}")
     finally:
         plt.close()
 
@@ -448,7 +453,7 @@ def __calculate_y_values(names, scores):
 def main() -> None:
     df = load_data()
     X_train, X_test, y_train, y_test, ct = preprocess_data(df)
-    train_model(X_train, X_test, y_train, y_test, ct, "gam")
+    train_model(X_train, X_test, y_train, y_test, ct)
     scores_df = pd.DataFrame(plots.data)
     scores_df.to_csv("scores.csv", index=False)
     scores_df.to_excel("scores.xlsx", index=False)
