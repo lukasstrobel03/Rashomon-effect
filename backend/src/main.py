@@ -17,7 +17,12 @@ from sklearn.model_selection import ParameterGrid
 
 from config import Config, Plots
 from utils import sanitize_dir_name
-from wrappers import ModelWrapper, EBMWrapper, GAMWrapper
+from wrappers import (
+    ModelWrapper, 
+    EBMWrapper, 
+    GAMWrapper,
+    IGANNWrapper
+)
 
 
 config = Config()
@@ -116,7 +121,7 @@ def load_data() -> pd.DataFrame:
 def preprocess_data(
     df: pd.DataFrame,
 ) -> Tuple[pd.Series, pd.Series, pd.Series, pd.Series]:
-    X = df[config.numerical_cols + config.categorical_cols]
+    X = df[config.numerical_cols]# + config.categorical_cols]
     y = df[config.target]
 
     X_train, X_test, y_train, y_test = train_test_split(
@@ -254,26 +259,34 @@ def train_model(
                 ),
             )
             model.fit(X_train_selected, y_train)
+        elif model_type == "igann":
+            igann_params = {"verbose": 0, "n_hid": 100}
+
+            model = IGANNWrapper(
+                feature_names=feature_names,
+                categorical_names=config.categorical_cols,
+                **igann_params
+            )
+            model.fit(X_train_selected, y_train)
 
         score = model.score(X_test_selected, y_test)
         logger.debug(f"R^2 score: {score:.6f} Params: {params}")
+        # # Interaction check now works via ModelWrapper interface
+        # debug_interaction_issue(model)
 
-        # Interaction check now works via ModelWrapper interface
-        debug_interaction_issue(model)
-
-        # Save the raw EBM model (for backwards compatibility with existing code)
+        # # Save the raw EBM model (for backwards compatibility with existing code)
         
-        model_dir = "__".join([f"{key}_{value}" for key, value in params.items()])
-        model_dir += f"__score_{score:.6f}"
-        model_dir = sanitize_dir_name(model_dir)
-        model_path = f"{config.model_save_path}/{model_type}/{model_dir}"
-        os.makedirs(model_path, exist_ok=True)
-        with open(f"{model_path}/model.pkl", "wb") as f:
-            pickle.dump(model.get_raw_model(), f)
+        # model_dir = "__".join([f"{key}_{value}" for key, value in params.items()])
+        # model_dir += f"__score_{score:.6f}"
+        # model_dir = sanitize_dir_name(model_dir)
+        # model_path = f"{config.model_save_path}/{model_type}/{model_dir}"
+        # os.makedirs(model_path, exist_ok=True)
+        # with open(f"{model_path}/model.pkl", "wb") as f:
+        #     pickle.dump(model.get_raw_model(), f)
 
-        # Plots also use ModelWrapper interface
-        plots.data.append(dict(copy.deepcopy(params), score=score))
-        create_plots(model, model_path)
+        # # Plots also use ModelWrapper interface
+        # plots.data.append(dict(copy.deepcopy(params), score=score))
+        # create_plots(model, model_path)
 
 def create_plots(model: ModelWrapper, model_path: str | os.PathLike):
     """
@@ -413,7 +426,7 @@ def _create_num_plot(model_path, feat_data: dict, feat: str, model: ModelWrapper
             )
 
         if isinstance(model, EBMWrapper):
-            plt.step(feat_data["names"], y_values, where="post")  # Treppe für EBM
+            plt.step(feat_data["names"], y_values, where="post")
         else:
             plt.plot(feat_data["names"], y_values)  
         plt.savefig(f"{model_path}/jpg/{feat}.jpg", format="jpg", dpi=300)
@@ -453,7 +466,7 @@ def __calculate_y_values(names, scores):
 def main() -> None:
     df = load_data()
     X_train, X_test, y_train, y_test, ct = preprocess_data(df)
-    train_model(X_train, X_test, y_train, y_test, ct)
+    train_model(X_train, X_test, y_train, y_test, ct, "igann")
     scores_df = pd.DataFrame(plots.data)
     scores_df.to_csv("scores.csv", index=False)
     scores_df.to_excel("scores.xlsx", index=False)
