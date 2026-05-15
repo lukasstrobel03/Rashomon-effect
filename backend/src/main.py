@@ -16,12 +16,12 @@ from sklearn.preprocessing import OneHotEncoder, FunctionTransformer
 from sklearn.model_selection import ParameterGrid
 
 from config import Config, Plots
-from utils import sanitize_dir_name
 from wrappers import (
     ModelWrapper, 
     EBMWrapper, 
     GAMWrapper,
-    IGANNWrapper
+    IGANNWrapper,
+    LinearRegressionWrapper
 )
 
 
@@ -121,7 +121,7 @@ def load_data() -> pd.DataFrame:
 def preprocess_data(
     df: pd.DataFrame,
 ) -> Tuple[pd.Series, pd.Series, pd.Series, pd.Series]:
-    X = df[config.numerical_cols]# + config.categorical_cols]
+    X = df[config.numerical_cols + config.categorical_cols]
     y = df[config.target]
 
     X_train, X_test, y_train, y_test = train_test_split(
@@ -185,8 +185,8 @@ def build_gam_terms(
         *_, feat_name, _ = name.split("_")
         if feat_name in config.categorical_cols:
             terms.append(f(i))
-        elif (name in params["monotonicity_constraints"] and 
-        name not in params["exclude"]):
+        elif (name in config.parameters["monotonicity_constraints"] and 
+        name not in config.parameters["exclude"]):
             terms.append(s(i, constraints="monotonic_inc"))
         else:
             terms.append(s(i))
@@ -200,6 +200,13 @@ def build_gam_terms(
 
     return TermList(*terms)
 
+def get_right_parameters(model_type: str) -> dict:
+    """Return the right parameters for each model."""
+    if model_type == "ebm":
+        return {**config.ebm_parameters, **config.parameters}
+    elif model_type == "gam":
+        return {**config.gam_parameters, **config.parameters}
+    
 def train_model(
     X_train: pd.DataFrame,
     X_test: pd.DataFrame,
@@ -209,13 +216,13 @@ def train_model(
     model_type: str = "ebm"
 ) -> None:
 
-    param_grid_dict = list(ParameterGrid(config.parameters))
+    param_grid_dict = list(ParameterGrid(get_right_parameters(model_type)))
     logger.info(f"Number of parameter options: {len(param_grid_dict)}\n\n")
 
     for i, params in enumerate(param_grid_dict):
         logger.info(f"Training model {i + 1} of {len(param_grid_dict)}")
+        logger.info(params)
 
-        # Build EBM kwargs (exclude non-EBM keys)
         model_params = {
             param_name: param_value
             for (param_name, param_value) in params.items()
@@ -224,12 +231,12 @@ def train_model(
 
         feature_names = [
             feat for feat in ct.get_feature_names_out()
-            if feat not in params["exclude"]
+            if feat not in config.parameters["exclude"]
         ]
         excluded_features_index = [
             list(ct.get_feature_names_out()).index(feat)
             for feat in ct.get_feature_names_out()
-            if feat in params["exclude"]
+            if feat in config.parameters["exclude"]
         ]
         X_train_selected = np.delete(X_train, excluded_features_index, axis=1)
         X_test_selected = np.delete(X_test, excluded_features_index, axis=1)
@@ -243,50 +250,107 @@ def train_model(
             )
             model.fit(X_train_selected, y_train)
 
-            if params["monotonicity_constraints"]:
-                for mono_index, feature in enumerate(params["monotonicity_constraints"]):
-                    if feature not in params["exclude"]:
+            if config.parameters["monotonicity_constraints"]:
+                for mono_index, feature in enumerate(config.parameters["monotonicity_constraints"]):
+                    if feature not in config.parameters["exclude"]:
                         logger.debug(f"Monotonize: {feature}")
                         model.monotonize(feature)
                     else:
-                        params["monotonicity_constraints"].pop(mono_index)
+                        config.parameters["monotonicity_constraints"].pop(mono_index)
+
         elif model_type == "gam":
+
             model = GAMWrapper(
                 feature_names=feature_names,
-                terms = build_gam_terms(
-                    feature_names, 
+                terms=build_gam_terms(
+                    feature_names,
                     params
                 ),
+                n_splines=params["n_splines"],
             )
             model.fit(X_train_selected, y_train)
+
         elif model_type == "igann":
             igann_params = {"verbose": 0, "n_hid": 100}
 
             model = IGANNWrapper(
                 feature_names=feature_names,
-                categorical_names=config.categorical_cols,
                 **igann_params
             )
             model.fit(X_train_selected, y_train)
 
+        elif model_type == "lr":
+            lr_params: dict = {
+                "exclude": [
+                    (),
+                    ("num__windspeed",),
+                    ("num__weekday",),
+                    ("num__windspeed", "num__weekday"),
+                ],
+                "fit_intercept": [True]
+            }
+            model = LinearRegressionWrapper(
+                feature_names=feature_names,
+                **lr_params
+            )
+
+
         score = model.score(X_test_selected, y_test)
         logger.debug(f"R^2 score: {score:.6f} Params: {params}")
-        # # Interaction check now works via ModelWrapper interface
-        # debug_interaction_issue(model)
 
-        # # Save the raw EBM model (for backwards compatibility with existing code)
-        
-        # model_dir = "__".join([f"{key}_{value}" for key, value in params.items()])
-        # model_dir += f"__score_{score:.6f}"
-        # model_dir = sanitize_dir_name(model_dir)
-        # model_path = f"{config.model_save_path}/{model_type}/{model_dir}"
-        # os.makedirs(model_path, exist_ok=True)
-        # with open(f"{model_path}/model.pkl", "wb") as f:
-        #     pickle.dump(model.get_raw_model(), f)
+        debug_interaction_issue(model)
 
-        # # Plots also use ModelWrapper interface
-        # plots.data.append(dict(copy.deepcopy(params), score=score))
-        # create_plots(model, model_path)
+
+        model_dir = _params_to_dir_name({**params, **config.parameters})
+        model_dir += f"__score_{score:.6f}"
+        model_path = f"{config.model_save_path}/{model_dir}"
+        os.makedirs(model_path, exist_ok=True)
+        with open(f"{model_path}/model.pkl", "wb") as f:
+            pickle.dump(model.get_raw_model(), f)
+
+        plots.data.append(dict(copy.deepcopy(params), score=score))
+        create_plots(model, model_path)
+
+
+FEATURE_ABBREV = {
+    "num__windspeed": "ws",
+    "num__atemp": "at",
+    "num__weekday": "wd",
+    "num__hr": "hr",
+    "cat__workingday_1": "wk",
+}
+
+# TODO: parameter short key list expandng for different models
+def _params_to_dir_name(params: dict) -> str:
+    parts = []
+    for key, value in params.items():
+        short_key = {
+            "exclude": "ex",
+            "interactions": "int",
+            "max_bins": "mb",
+            "min_samples_leaf": "msl",
+            "monotonicity_constraints": "mono",
+            "n_splines": "ns",
+            "spline_order": "so",
+            "lam": "lam",
+        }.get(key, key)
+
+        if isinstance(value, tuple):
+            # exclude ist ein Tuple von Feature-Namen z.B. ('num__windspeed',)
+            abbreviated = [FEATURE_ABBREV.get(v, str(v)) for v in value]
+            value_str = "-".join(abbreviated) if abbreviated else "none"
+        elif isinstance(value, list):
+            # monotonicity_constraints ist eine Liste von Feature-Namen
+            abbreviated = [FEATURE_ABBREV.get(w, str(w)) for v in value for w in v]
+            value_str = "-".join(abbreviated) if abbreviated else "none"
+        elif isinstance(value, float):
+            value_str = f"{value:.4f}"
+        else:
+            value_str = str(value)
+
+        parts.append(f"{short_key}_{value_str}")
+    return "__".join(parts)
+
 
 def create_plots(model: ModelWrapper, model_path: str | os.PathLike):
     """
@@ -387,6 +451,10 @@ def create_plots(model: ModelWrapper, model_path: str | os.PathLike):
 
 
 def _create_cat_plot(model_path, feat_data: dict, feat: str):
+
+    os.makedirs(f"{model_path}/jpg/", exist_ok=True)
+    os.makedirs(f"{model_path}/svg/", exist_ok=True)
+
     try:
         y_values = __calculate_y_values(feat_data["names"], feat_data["scores"])
 
@@ -405,6 +473,9 @@ def _create_cat_plot(model_path, feat_data: dict, feat: str):
 
 
 def _create_num_plot(model_path, feat_data: dict, feat: str, model: ModelWrapper):
+
+    os.makedirs(f"{model_path}/jpg/", exist_ok=True)
+    os.makedirs(f"{model_path}/svg/", exist_ok=True)
     try:
         y_values = __calculate_y_values(feat_data["names"], feat_data["scores"])
         if feat == "num__hr":
@@ -431,12 +502,18 @@ def _create_num_plot(model_path, feat_data: dict, feat: str, model: ModelWrapper
             plt.plot(feat_data["names"], y_values)  
         plt.savefig(f"{model_path}/jpg/{feat}.jpg", format="jpg", dpi=300)
         plt.savefig(f"{model_path}/svg/{feat}.svg", format="svg")
+    except FileNotFoundError as e:
+        logger.error(f"Directory for numeric plot doesn't exist: {e}")
     finally:
         plt.close()
 
 
 def _create_interaction_plot(model_path, feat_data: dict, feat_name: str):
     safe_feat_name = feat_name.replace(" & ", "__x__").replace(" ", "_")
+
+    os.makedirs(f"{model_path}/jpg/", exist_ok=True)
+    os.makedirs(f"{model_path}/svg/", exist_ok=True)
+
     fig, ax = plt.subplots()
     try: 
         im = ax.pcolormesh(
@@ -466,7 +543,7 @@ def __calculate_y_values(names, scores):
 def main() -> None:
     df = load_data()
     X_train, X_test, y_train, y_test, ct = preprocess_data(df)
-    train_model(X_train, X_test, y_train, y_test, ct, "igann")
+    train_model(X_train, X_test, y_train, y_test, ct, "gam")
     scores_df = pd.DataFrame(plots.data)
     scores_df.to_csv("scores.csv", index=False)
     scores_df.to_excel("scores.xlsx", index=False)

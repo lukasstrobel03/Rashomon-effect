@@ -32,7 +32,6 @@ class Config:
     gam_parameters: dict = field(
         default_factory=lambda: {
             "n_splines": [20, 40, 60],
-            "spline_order": [3, 5],
             "interactions": [1, 2, 3]
         }
     )
