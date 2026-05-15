@@ -22,6 +22,20 @@ class Config:
     test_size: float = 0.3
     random_state: int = 42
     model_save_path: str = "models/"
+    ebm_parameters: dict = field(
+        default_factory=lambda: {
+            "max_bins": [8, 16, 256],
+            "min_samples_leaf": [64],
+            "interactions": [1, 2, 3]
+        }
+    )
+    gam_parameters: dict = field(
+        default_factory=lambda: {
+            "n_splines": [20, 40, 60],
+            "spline_order": [3, 5],
+            "interactions": [1, 2, 3]
+        }
+    )
     parameters: dict = field(
         default_factory=lambda: {
             "exclude": [
@@ -30,9 +44,6 @@ class Config:
                 ("num__weekday",),
                 ("num__windspeed", "num__weekday"),
             ],
-            "max_bins": [8, 16, 256],
-            "min_samples_leaf": [64],
-            "interactions": [1, 2, 3],
             "monotonicity_constraints": [
                 [],
                 ["num__atemp"],
