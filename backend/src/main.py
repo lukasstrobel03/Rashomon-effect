@@ -142,31 +142,6 @@ def preprocess_data(
 
     return X_train, X_test, y_train, y_test, ct
 
-def debug_interaction_issue(model: ModelWrapper):
-    """
-    Checks that every interaction term only contains features
-    that also appear as main effects in the model.
-
-    Works with any ModelWrapper — no EBM-specific calls needed.
-    """
-    term_names = model.get_term_names()
-
-    # Collect all main-effect feature names (no ' & ' in name)
-    main_effects = {name for name in term_names if " & " not in name}
-
-    for term in term_names:
-        if " & " not in term:
-            continue
-        term1, term2 = term.split(" & ")
-        if term1 in main_effects and term2 in main_effects:
-            continue
-        else:
-            print(term_names)
-            raise ValueError(
-                f"Interaction '{term}' contains a feature without a main effect. "
-                f"Missing: {[f for f in [term1, term2] if f not in main_effects]}"
-            )
-
 # Limitation: interactions are static for dataset 
 def build_gam_terms(
         feature_names: list[str], 
@@ -205,8 +180,6 @@ def get_right_parameters(model_type: str) -> dict:
         return {**config.gam_parameters, **config.parameters}
     elif model_type == "igann":
         return {**config.parameters, **config.igann_parameters}
-    elif model_type == "aplr":
-        return {**config.parameters, **config.aplr_parameters}
     
 def train_model(
     X_train: pd.DataFrame,
@@ -260,19 +233,16 @@ def train_model(
                         params["monotonicity_constraints"].pop(mono_index)
 
         elif model_type == "gam":
-
             model = GAMWrapper(
                 feature_names=feature_names,
                 terms=build_gam_terms(
                     feature_names,
-                    params
+                    model_params
                 ),
-                n_splines=params["n_splines"],
             )
             model.fit(X_train_selected, y_train)
 
         elif model_type == "igann":
-            igann_params = {"verbose": 0, "n_hid": 100, "boost_rate": 0.6}
 
             model = IGANNWrapper(
                 feature_names=feature_names,
@@ -281,8 +251,6 @@ def train_model(
             model.fit(X_train_selected, y_train)
         score = model.score(X_test_selected, y_test)
         logger.debug(f"R^2 score: {score:.6f} Params: {params}")
-
-        debug_interaction_issue(model)
 
         model_dir = _params_to_dir_name({**params, **config.parameters})
         model_dir += f"__score_{score:.6f}"
@@ -533,7 +501,7 @@ def __calculate_y_values(names, scores):
 def main() -> None:
     df = load_data()
     X_train, X_test, y_train, y_test, ct = preprocess_data(df)
-    train_model(X_train, X_test, y_train, y_test, ct, "ebm")
+    train_model(X_train, X_test, y_train, y_test, ct, "gam")
     scores_df = pd.DataFrame(plots.data)
     scores_df.to_csv("scores.csv", index=False)
     scores_df.to_excel("scores.xlsx", index=False)
