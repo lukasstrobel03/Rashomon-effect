@@ -15,7 +15,7 @@ class EBMWrapper(ModelWrapper):
         """
         Pass any ExplainableBoostingRegressor kwargs here.
         """
-        self._model = ExplainableBoostingRegressor(**kwargs)
+        self._model = ExplainableBoostingRegressor(max_rounds=750, **kwargs)
         self._global_explanation = None
 
     def fit(self, X: np.ndarray, y: np.ndarray) -> None:

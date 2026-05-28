@@ -21,9 +21,7 @@ from wrappers import (
     EBMWrapper, 
     GAMWrapper,
     IGANNWrapper,
-    LinearRegressionWrapper
 )
-
 
 config = Config()
 plots = Plots()
@@ -174,7 +172,6 @@ def build_gam_terms(
         feature_names: list[str], 
         params
 ) -> TermList:
-    # XXX: INTERACTIONS need modifications for different datasets
     INTERACTIONS = [
         ("num__hr", "cat__workingday_1"), 
         ("num_hr", "num__atemp"),
@@ -206,6 +203,10 @@ def get_right_parameters(model_type: str) -> dict:
         return {**config.ebm_parameters, **config.parameters}
     elif model_type == "gam":
         return {**config.gam_parameters, **config.parameters}
+    elif model_type == "igann":
+        return {**config.parameters, **config.igann_parameters}
+    elif model_type == "aplr":
+        return {**config.parameters, **config.aplr_parameters}
     
 def train_model(
     X_train: pd.DataFrame,
@@ -250,13 +251,13 @@ def train_model(
             )
             model.fit(X_train_selected, y_train)
 
-            if config.parameters["monotonicity_constraints"]:
-                for mono_index, feature in enumerate(config.parameters["monotonicity_constraints"]):
-                    if feature not in config.parameters["exclude"]:
+            if params["monotonicity_constraints"]:
+                for mono_index, feature in enumerate(params["monotonicity_constraints"]):
+                    if feature not in params["exclude"]:
                         logger.debug(f"Monotonize: {feature}")
                         model.monotonize(feature)
                     else:
-                        config.parameters["monotonicity_constraints"].pop(mono_index)
+                        params["monotonicity_constraints"].pop(mono_index)
 
         elif model_type == "gam":
 
@@ -271,35 +272,17 @@ def train_model(
             model.fit(X_train_selected, y_train)
 
         elif model_type == "igann":
-            igann_params = {"verbose": 0, "n_hid": 100}
+            igann_params = {"verbose": 0, "n_hid": 100, "boost_rate": 0.6}
 
             model = IGANNWrapper(
                 feature_names=feature_names,
-                **igann_params
+                # **igann_params
             )
             model.fit(X_train_selected, y_train)
-
-        elif model_type == "lr":
-            lr_params: dict = {
-                "exclude": [
-                    (),
-                    ("num__windspeed",),
-                    ("num__weekday",),
-                    ("num__windspeed", "num__weekday"),
-                ],
-                "fit_intercept": [True]
-            }
-            model = LinearRegressionWrapper(
-                feature_names=feature_names,
-                **lr_params
-            )
-
-
         score = model.score(X_test_selected, y_test)
         logger.debug(f"R^2 score: {score:.6f} Params: {params}")
 
         debug_interaction_issue(model)
-
 
         model_dir = _params_to_dir_name({**params, **config.parameters})
         model_dir += f"__score_{score:.6f}"
@@ -309,7 +292,14 @@ def train_model(
             pickle.dump(model.get_raw_model(), f)
 
         plots.data.append(dict(copy.deepcopy(params), score=score))
-        create_plots(model, model_path)
+        if model_type != "igann":
+            create_plots(model, model_path)
+        elif model_type == "igann":
+            create_igann_plots(model)
+
+def create_igann_plots(model: IGANNWrapper) -> None:
+    """Create the specific IGANN plots."""
+    pass
 
 
 FEATURE_ABBREV = {
@@ -366,44 +356,44 @@ def create_plots(model: ModelWrapper, model_path: str | os.PathLike):
         logger.debug(f"Create plot for {feat_name}.")
         feat_data = model.get_shape_data(index)
 
-        if feat_data["type"] == "interaction":
-            feature_name_left, feature_name_right = feat_name.split(" & ")
-            _create_interaction_plot(model_path, feat_data, feat_name)
+        # if feat_data["type"] == "interaction":
+        #     feature_name_left, feature_name_right = feat_name.split(" & ")
+        #     _create_interaction_plot(model_path, feat_data, feat_name)
 
-            y_values = feat_data["right_names"]
-            if len(y_values) == 3:
-                y_ticks = [0.25, 0.75]
-                y_labels = ["No", "Yes"]
-            else:
-                y_ticks = None
-                y_labels = None
+        #     y_values = feat_data["right_names"]
+        #     if len(y_values) == 3:
+        #         y_ticks = [0.25, 0.75]
+        #         y_labels = ["No", "Yes"]
+        #     else:
+        #         y_ticks = None
+        #         y_labels = None
 
-            if feature_name_right == "num__weekday":
-                y_labels = [
-                    "Sunday", 
-                    "Monday", 
-                    "Tuesday", 
-                    "Wednesday",
-                    "Thursday", 
-                    "Friday", 
-                    "Saturday"
-                ]
+        #     if feature_name_right == "num__weekday":
+        #         y_labels = [
+        #             "Sunday", 
+        #             "Monday", 
+        #             "Tuesday", 
+        #             "Wednesday",
+        #             "Thursday", 
+        #             "Friday", 
+        #             "Saturday"
+        #         ]
 
-            add_plot_data(
-                index,
-                np.array(feat_data["left_names"]),
-                feat_data["right_names"],
-                "interaction",
-                feat_name,
-                feature_name_left,
-                feature_name_right,
-                model,
-                Z=np.transpose(feat_data["scores"]),
-                y_ticks=y_ticks if y_ticks is not None else None,
-                y_labels=y_labels if y_labels is not None else None,
-            )
+        #     add_plot_data(
+        #         index,
+        #         np.array(feat_data["left_names"]),
+        #         feat_data["right_names"],
+        #         "interaction",
+        #         feat_name,
+        #         feature_name_left,
+        #         feature_name_right,
+        #         model,
+        #         Z=np.transpose(feat_data["scores"]),
+        #         y_ticks=y_ticks if y_ticks is not None else None,
+        #         y_labels=y_labels if y_labels is not None else None,
+        #     )
 
-        elif feat_data["type"] == "categorical":
+        if feat_data["type"] == "categorical":
             _create_cat_plot(model_path, feat_data, feat_name)
             y_values = __calculate_y_values(feat_data["names"], feat_data["scores"])
             x_values = np.array(feat_data["names"])
@@ -543,7 +533,7 @@ def __calculate_y_values(names, scores):
 def main() -> None:
     df = load_data()
     X_train, X_test, y_train, y_test, ct = preprocess_data(df)
-    train_model(X_train, X_test, y_train, y_test, ct, "gam")
+    train_model(X_train, X_test, y_train, y_test, ct, "ebm")
     scores_df = pd.DataFrame(plots.data)
     scores_df.to_csv("scores.csv", index=False)
     scores_df.to_excel("scores.xlsx", index=False)
