@@ -25,13 +25,13 @@ class Config:
     ebm_parameters: dict = field(
         default_factory=lambda: {
             "max_bins": [8, 16, 256],
-            "min_samples_leaf": [64, 256],
+            "min_samples_leaf": [16, 64, 256],
         }
     )
     gam_parameters: dict = field(
         default_factory=lambda: {
             "n_splines": [20, 40, 60],
-            "penalties": ["auto", "l2", "derivate"]
+            "penalties": ["auto", "l2", None]
         }
     )
     igann_parameters: dict = field(
@@ -63,6 +63,11 @@ class Config:
             "num__windspeed": "Windspeed",
             "num__atemp": "Temperature",
             "cat__workingday_1": "Workday",
+            "num__hr & cat__workingday_1": "Workday x Time",
+            "num__hr & num__atemp": "Temperature x Time",
+            "num__hr & num__weekday": "Weekday x Time",
+            "num__hr & num__windspeed": "Windspeed x Time",
+            "num__atemp & cat__workingday_1": "Workday x Temperature",
             "Effect on Prediction": "Effect on Rentals",
         }
     )

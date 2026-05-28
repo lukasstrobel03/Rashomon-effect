@@ -6,6 +6,8 @@ from loguru import logger
 from pathlib import Path
 from typing import List, Tuple
 
+import matplotlib
+matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -142,33 +144,57 @@ def preprocess_data(
 
     return X_train, X_test, y_train, y_test, ct
 
-# Limitation: interactions are static for dataset 
-def build_gam_terms(
-        feature_names: list[str], 
-        params
-) -> TermList:
-    INTERACTIONS = [
-        ("num__hr", "cat__workingday_1"), 
-        ("num_hr", "num__atemp"),
-        ("num__hr", "num__weekday")
-    ]
-    terms = []
-    for i, name in enumerate(feature_names):
-        *_, feat_name, _ = name.split("_")
-        if feat_name in config.categorical_cols:
-            terms.append(f(i))
-        elif (name in config.parameters["monotonicity_constraints"] and 
-        name not in config.parameters["exclude"]):
-            terms.append(s(i, constraints="monotonic_inc"))
-        else:
-            terms.append(s(i))
+def debug_interaction_issue(model: ModelWrapper):
+    """
+    Checks that every interaction term only contains features
+    that also appear as main effects in the model.
 
-    if params["interactions"] > 0:
-        for left, right in INTERACTIONS[:params["interactions"]]:
-            if left in feature_names and right in feature_names:
-                left_idx = feature_names.index(left)
-                right_idx = feature_names.index(right)
-                terms.append(te(left_idx, right_idx))
+    Works with any ModelWrapper — no EBM-specific calls needed.
+    """
+    term_names = model.get_term_names()
+
+    # Collect all main-effect feature names (no ' & ' in name)
+    main_effects = {name for name in term_names if " & " not in name}
+
+    for term in term_names:
+        if " & " not in term:
+            continue
+        term1, term2 = term.split(" & ")
+        if term1 in main_effects and term2 in main_effects:
+            continue
+        else:
+            print(term_names)
+            raise ValueError(
+                f"Interaction '{term}' contains a feature without a main effect. "
+                f"Missing: {[f for f in [term1, term2] if f not in main_effects]}"
+            )
+        
+# Limitation: interactions are static for dataset 
+def build_gam_terms(feature_names: list[str], model_params, params) -> TermList:
+    INTERACTIONS = [
+        ("num__hr", "cat__workingday_1"),
+        ("num__hr", "num__atemp"), 
+        ("num__hr", "num__weekday"),
+    ]
+    CATEGORICAL_FEATURES = config.categorical_cols
+    terms = []
+
+    # 1. Erst alle Haupteffekte
+    for i, name in enumerate(feature_names):
+        if name in CATEGORICAL_FEATURES:
+            terms.append(f(i))
+        elif name in params["monotonicity_constraints"] and name not in params["exclude"]:
+            terms.append(s(i, n_splines=model_params["n_splines"], penalties=model_params["penalties"], constraints="monotonic_inc"))
+        else:
+            terms.append(s(i, n_splines=model_params["n_splines"], penalties=model_params["penalties"]))
+
+    # 2. Dann Interaktionen — außerhalb der Schleife
+    interactions_count = 2
+    for left, right in INTERACTIONS[:interactions_count]:
+        if left in feature_names and right in feature_names:
+            left_idx = feature_names.index(left)
+            right_idx = feature_names.index(right)
+            terms.append(te(left_idx, right_idx))
 
     return TermList(*terms)
 
@@ -231,24 +257,26 @@ def train_model(
                         model.monotonize(feature)
                     else:
                         params["monotonicity_constraints"].pop(mono_index)
-
+            debug_interaction_issue(model)
         elif model_type == "gam":
             model = GAMWrapper(
                 feature_names=feature_names,
                 terms=build_gam_terms(
                     feature_names,
-                    model_params
+                    model_params,
+                    params
                 ),
             )
             model.fit(X_train_selected, y_train)
+            debug_interaction_issue(model)
 
         elif model_type == "igann":
-
             model = IGANNWrapper(
                 feature_names=feature_names,
-                # **igann_params
+                **model_params
             )
             model.fit(X_train_selected, y_train)
+
         score = model.score(X_test_selected, y_test)
         logger.debug(f"R^2 score: {score:.6f} Params: {params}")
 
@@ -288,9 +316,8 @@ def _params_to_dir_name(params: dict) -> str:
             "max_bins": "mb",
             "min_samples_leaf": "msl",
             "monotonicity_constraints": "mono",
-            "n_splines": "ns",
-            "spline_order": "so",
-            "lam": "lam",
+            "penalties": "pen",
+            "n_splines": "n_spl"
         }.get(key, key)
 
         if isinstance(value, tuple):
@@ -324,44 +351,44 @@ def create_plots(model: ModelWrapper, model_path: str | os.PathLike):
         logger.debug(f"Create plot for {feat_name}.")
         feat_data = model.get_shape_data(index)
 
-        # if feat_data["type"] == "interaction":
-        #     feature_name_left, feature_name_right = feat_name.split(" & ")
-        #     _create_interaction_plot(model_path, feat_data, feat_name)
+        if feat_data.get("type") == "interaction" or " & " in feat_name:
+            feature_name_left, feature_name_right = feat_name.split(" & ")
+            _create_interaction_plot(model_path, feat_data, feat_name)
 
-        #     y_values = feat_data["right_names"]
-        #     if len(y_values) == 3:
-        #         y_ticks = [0.25, 0.75]
-        #         y_labels = ["No", "Yes"]
-        #     else:
-        #         y_ticks = None
-        #         y_labels = None
+            y_values = feat_data["right_names"]
+            if len(y_values) == 3:
+                y_ticks = [0.25, 0.75]
+                y_labels = ["No", "Yes"]
+            else:
+                y_ticks = None
+                y_labels = None
 
-        #     if feature_name_right == "num__weekday":
-        #         y_labels = [
-        #             "Sunday", 
-        #             "Monday", 
-        #             "Tuesday", 
-        #             "Wednesday",
-        #             "Thursday", 
-        #             "Friday", 
-        #             "Saturday"
-        #         ]
+            if feature_name_right == "num__weekday":
+                y_labels = [
+                    "Sunday", 
+                    "Monday", 
+                    "Tuesday", 
+                    "Wednesday",
+                    "Thursday", 
+                    "Friday", 
+                    "Saturday"
+                ]
 
-        #     add_plot_data(
-        #         index,
-        #         np.array(feat_data["left_names"]),
-        #         feat_data["right_names"],
-        #         "interaction",
-        #         feat_name,
-        #         feature_name_left,
-        #         feature_name_right,
-        #         model,
-        #         Z=np.transpose(feat_data["scores"]),
-        #         y_ticks=y_ticks if y_ticks is not None else None,
-        #         y_labels=y_labels if y_labels is not None else None,
-        #     )
+            add_plot_data(
+                index,
+                np.array(feat_data["left_names"]),
+                feat_data["right_names"],
+                "interaction",
+                feat_name,
+                feature_name_left,
+                feature_name_right,
+                model,
+                Z=np.transpose(feat_data["scores"]),
+                y_ticks=y_ticks if y_ticks is not None else None,
+                y_labels=y_labels if y_labels is not None else None,
+            )
 
-        if feat_data["type"] == "categorical":
+        elif feat_data.get("type") == "categorical" or feat_name.startswith("cat__"):
             _create_cat_plot(model_path, feat_data, feat_name)
             y_values = __calculate_y_values(feat_data["names"], feat_data["scores"])
             x_values = np.array(feat_data["names"])
