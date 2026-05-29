@@ -3,7 +3,6 @@ from typing import List
 
 import pandas as pd
 
-
 @dataclass
 class Config:
     data_path: str = "datasets/bike.csv"
@@ -22,6 +21,26 @@ class Config:
     test_size: float = 0.3
     random_state: int = 42
     model_save_path: str = "models/"
+    ebm_parameters: dict = field(
+        default_factory=lambda: {
+            "max_bins": [8, 16, 256],
+            "min_samples_leaf": [16, 64, 256],
+        }
+    )
+    gam_parameters: dict = field(
+        default_factory=lambda: {
+            "n_splines": [20, 40, 60],
+            "penalties": ["auto", "l2", None]
+        }
+    )
+    igann_parameters: dict = field(
+        default_factory=lambda: {
+            "n_estimators": [10000],  # Maximale Iterationen
+            "boost_rate": [0.2],     # Lernrate
+            "n_hid": [75],             # Hidden Neurons pro Feature
+            "elm_scale": [10],           # Skalierung der Gewichte ,
+        }
+    )
     parameters: dict = field(
         default_factory=lambda: {
             "exclude": [
@@ -30,9 +49,6 @@ class Config:
                 ("num__weekday",),
                 ("num__windspeed", "num__weekday"),
             ],
-            "max_bins": [8, 16, 256],
-            "min_samples_leaf": [64],
-            "interactions": [1, 2, 3],
             "monotonicity_constraints": [
                 [],
                 ["num__atemp"],

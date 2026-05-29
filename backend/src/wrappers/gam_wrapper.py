@@ -34,7 +34,7 @@ class GAMWrapper(ModelWrapper):
         # eventuell auch splines anpassen bzw. erhöhen in den spline-Funktionen
         # XXX: gridsearch anstelle von fit probieren für bessere Ergebnisse, um Modell in das Rashomon Set aufnehmen zu können.
         # gridsearch() steigert R² score um ca. 1% ggü. fit()
-        self._model.gridsearch(X, y)
+        self._model.fit(X, y)
         self._global_explanation = self._explain_global()
     
     def score(self, X: np.ndarray, y: np.ndarray) -> float:

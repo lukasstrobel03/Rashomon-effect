@@ -4,3 +4,6 @@
 .venv
 __pycache__
 .gitnexus
+.vscode
+# validation dataset
+validation_datasets
