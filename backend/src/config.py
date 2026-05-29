@@ -35,10 +35,10 @@ class Config:
     )
     igann_parameters: dict = field(
         default_factory=lambda: {
-            "n_estimators": [10000],  # Maximale Iterationen
-            "boost_rate": [0.2],     # Lernrate
-            "n_hid": [75],             # Hidden Neurons pro Feature
-            "elm_scale": [10],           # Skalierung der Gewichte ,
+            "n_estimators": [5000],  # Maximale Iterationen
+            "boost_rate": [0.25],     # Lernrate
+            "n_hid": [10, 50, 75],             # Hidden Neurons pro Feature
+            "elm_scale": [1, 5, 50],           # Skalierung der Gewichte ,
         }
     )
     parameters: dict = field(

@@ -296,6 +296,8 @@ def create_igann_plots(model: IGANNWrapper) -> None:
     pass
 
 
+
+
 FEATURE_ABBREV = {
     "num__windspeed": "ws",
     "num__atemp": "at",
@@ -304,7 +306,6 @@ FEATURE_ABBREV = {
     "cat__workingday_1": "wk",
 }
 
-# TODO: parameter short key list expandng for different models
 def _params_to_dir_name(params: dict) -> str:
     parts = []
     for key, value in params.items():
@@ -342,10 +343,7 @@ def _params_to_dir_name(params: dict) -> str:
 
 
 def create_plots(model: ModelWrapper, model_path: str | os.PathLike):
-    """
-    Creates all plots using only the ModelWrapper interface.
-    No EBM-specific calls remain here.
-    """
+    """Creates all plots using only the ModelWrapper interface."""
     os.makedirs(f"{model_path}/jpg/", exist_ok=True)
     os.makedirs(f"{model_path}/svg/", exist_ok=True)
 
@@ -532,7 +530,7 @@ def __calculate_y_values(names, scores):
 def main() -> None:
     df = load_data()
     X_train, X_test, y_train, y_test, ct = preprocess_data(df)
-    train_model(X_train, X_test, y_train, y_test, ct, "ebm")
+    train_model(X_train, X_test, y_train, y_test, ct, "igann")
     scores_df = pd.DataFrame(plots.data)
     scores_df.to_csv("scores.csv", index=False)
     scores_df.to_excel("scores.xlsx", index=False)

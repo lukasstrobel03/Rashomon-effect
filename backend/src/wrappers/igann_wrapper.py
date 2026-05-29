@@ -38,6 +38,11 @@ class IGANNWrapper(ModelWrapper):
         y_scaled = (y - self._y_mean) / self._y_std
 
         X_df = pd.DataFrame(X_scaled, columns=self._feature_names)
+
+        # Interactions for IGANN
+        interactions = [("num__hr", "cat__workingday_1"),("num__hr", "num__atemp")]
+        for col_a, col_b in interactions:
+            X_df[f"{col_a} & {col_b}"] = X_df[col_a] * X_df[col_b]
         self._model.fit(X_df, y_scaled)
 
         self._global_explanation.append(self._model.get_shape_functions_as_dict())
@@ -48,6 +53,11 @@ class IGANNWrapper(ModelWrapper):
 
         X_scaled = self._scaler_X.transform(X)
         X_df = pd.DataFrame(X_scaled, columns=self._feature_names)
+
+        # Interactions for IGANN
+        interactions = [("num__hr", "cat__workingday_1"),("num__hr", "num__atemp")]
+        for col_a, col_b in interactions:
+            X_df[f"{col_a} & {col_b}"] = X_df[col_a] * X_df[col_b]
 
         y_scaled = (y - self._y_mean) / self._y_std
         return self._model.score(X_df, y_scaled, "r_2")
