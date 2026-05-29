@@ -3,7 +3,6 @@ from typing import List
 
 import pandas as pd
 
-
 @dataclass
 class Config:
     data_path: str = "datasets/bike.csv"
@@ -36,8 +35,10 @@ class Config:
     )
     igann_parameters: dict = field(
         default_factory=lambda: {
-            "boost_rate": [0.01, 0.1, 0.2],
-            "n_hid": [10, 100, 1000]
+            "n_estimators": [10000],  # Maximale Iterationen
+            "boost_rate": [0.2],     # Lernrate
+            "n_hid": [75],             # Hidden Neurons pro Feature
+            "elm_scale": [10],           # Skalierung der Gewichte ,
         }
     )
     parameters: dict = field(

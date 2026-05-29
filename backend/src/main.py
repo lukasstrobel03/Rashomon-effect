@@ -179,7 +179,6 @@ def build_gam_terms(feature_names: list[str], model_params, params) -> TermList:
     CATEGORICAL_FEATURES = config.categorical_cols
     terms = []
 
-    # 1. Erst alle Haupteffekte
     for i, name in enumerate(feature_names):
         if name in CATEGORICAL_FEATURES:
             terms.append(f(i))
@@ -188,7 +187,6 @@ def build_gam_terms(feature_names: list[str], model_params, params) -> TermList:
         else:
             terms.append(s(i, n_splines=model_params["n_splines"], penalties=model_params["penalties"]))
 
-    # 2. Dann Interaktionen — außerhalb der Schleife
     interactions_count = 2
     for left, right in INTERACTIONS[:interactions_count]:
         if left in feature_names and right in feature_names:
@@ -317,7 +315,11 @@ def _params_to_dir_name(params: dict) -> str:
             "min_samples_leaf": "msl",
             "monotonicity_constraints": "mono",
             "penalties": "pen",
-            "n_splines": "n_spl"
+            "n_splines": "nspl",
+            "boost_rate": "bt",
+            "n_hid": "n_hid",
+            "n_estimators": "est",            
+            "act": "ac"
         }.get(key, key)
 
         if isinstance(value, tuple):
@@ -330,6 +332,8 @@ def _params_to_dir_name(params: dict) -> str:
             value_str = "-".join(abbreviated) if abbreviated else "none"
         elif isinstance(value, float):
             value_str = f"{value:.4f}"
+        elif callable(value):
+            value_str = value.__name__
         else:
             value_str = str(value)
 
@@ -528,12 +532,11 @@ def __calculate_y_values(names, scores):
 def main() -> None:
     df = load_data()
     X_train, X_test, y_train, y_test, ct = preprocess_data(df)
-    train_model(X_train, X_test, y_train, y_test, ct, "gam")
+    train_model(X_train, X_test, y_train, y_test, ct, "ebm")
     scores_df = pd.DataFrame(plots.data)
     scores_df.to_csv("scores.csv", index=False)
     scores_df.to_excel("scores.xlsx", index=False)
     scores_df.to_json("plot_data.json", orient="records")
-
 
 if __name__ == "__main__":
     main()
