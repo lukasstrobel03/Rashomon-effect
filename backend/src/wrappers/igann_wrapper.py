@@ -6,6 +6,7 @@ from igann import IGANN
 
 from .base import ModelWrapper
 
+
 CATEGORICAL_FEATURES = {"cat__workingday_1"}
 
 
@@ -22,7 +23,7 @@ class IGANNWrapper(ModelWrapper):
     def __init__(self, feature_names: List[str], categorical_features: set = None, **kwargs):
         self._feature_names = feature_names
         self._categorical_features = categorical_features or CATEGORICAL_FEATURES
-        self._model = IGANN(task='regression', **kwargs)
+        self._model = IGANN(task='regression', random_state=42, **kwargs)
         self._scaler_X = StandardScaler()
         self._global_explanation = []
         self._y_mean = None
@@ -44,7 +45,6 @@ class IGANNWrapper(ModelWrapper):
         for col_a, col_b in interactions:
             X_df[f"{col_a} & {col_b}"] = X_df[col_a] * X_df[col_b]
         self._model.fit(X_df, y_scaled)
-
         self._global_explanation.append(self._model.get_shape_functions_as_dict())
 
     def score(self, X: np.ndarray, y: np.ndarray) -> float:

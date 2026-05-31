@@ -203,7 +203,7 @@ def get_right_parameters(model_type: str) -> dict:
     elif model_type == "gam":
         return {**config.gam_parameters, **config.parameters}
     elif model_type == "igann":
-        return {**config.parameters, **config.igann_parameters}
+        return {**config.igann_parameters}
     
 def train_model(
     X_train: pd.DataFrame,
@@ -293,9 +293,7 @@ def train_model(
 
 def create_igann_plots(model: IGANNWrapper) -> None:
     """Create the specific IGANN plots."""
-    pass
-
-
+    plots.data = model._global_explanation
 
 
 FEATURE_ABBREV = {
@@ -319,8 +317,8 @@ def _params_to_dir_name(params: dict) -> str:
             "n_splines": "nspl",
             "boost_rate": "bt",
             "n_hid": "n_hid",
-            "n_estimators": "est",            
-            "act": "ac"
+            "n_estimators": "est",              
+            "elm_scale": "esc",
         }.get(key, key)
 
         if isinstance(value, tuple):
@@ -534,7 +532,7 @@ def main() -> None:
     scores_df = pd.DataFrame(plots.data)
     scores_df.to_csv("scores.csv", index=False)
     scores_df.to_excel("scores.xlsx", index=False)
-    scores_df.to_json("plot_data.json", orient="records")
+    scores_df.to_json("plot_data.json", orient="records", indent=2)
 
 if __name__ == "__main__":
     main()
