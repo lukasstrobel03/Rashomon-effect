@@ -20,7 +20,7 @@ class Config:
     target: str = field(default_factory=lambda: "cnt")
     test_size: float = 0.3
     random_state: int = 42
-    model_save_path: str = "models/"
+    model_save_path: str = "models"
     ebm_parameters: dict = field(
         default_factory=lambda: {
             "max_bins": [8, 16, 256],

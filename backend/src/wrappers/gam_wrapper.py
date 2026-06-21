@@ -118,6 +118,7 @@ class GAMWrapper(ModelWrapper):
                     "type": "numerical",
                     "name": self._feature_names[feat_idx],
                     "names": XX[:, feat_idx],
+                    "smooth": True,
                     "scores": y_values,
                 })
         
