@@ -11,3 +11,6 @@ plots/
 models/
 scores/
 data/
+raw_data_old/
+assets_old/
+assets_tmp/
