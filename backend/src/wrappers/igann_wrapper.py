@@ -39,10 +39,14 @@ class IGANNWrapper(ModelWrapper):
       knows to render them as 2D surfaces instead of 1D curves.
     """
 
-    def __init__(self, feature_names: List[str], categorical_features: set = None, **kwargs):
+    def __init__(self, feature_names: List[str], excluded, categorical_features: set = None, **kwargs):
         self._feature_names = feature_names
+        self._excluded = excluded
         self._categorical_features = categorical_features or CATEGORICAL_FEATURES
-        self._numerical_features = [f for f in feature_names if f not in self._categorical_features]
+        self._numerical_features = [f for f in feature_names 
+                                    if f not in self._categorical_features and 
+                                    f not in self._excluded
+        ]
         self._numerical_idx = [feature_names.index(f) for f in self._numerical_features]
 
         self._model = IGANN(task='regression', random_state=42, **kwargs)

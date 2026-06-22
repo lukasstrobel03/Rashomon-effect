@@ -38,7 +38,7 @@ class Config:
             "n_estimators": [7000], 
             "boost_rate": [0.1, 0.2, 0.25],   
             "n_hid": [10, 50, 75],  
-            "elm_scale": [5, 20, 25],
+            "elm_scale": [5],
         }
     )
     parameters: dict = field(
@@ -49,12 +49,12 @@ class Config:
                 ("num__weekday",),
                 ("num__windspeed", "num__weekday"),
             ],
-            "monotonicity_constraints": [
-                [],
-                ["num__atemp"],
-                ["num__windspeed"],
-                ["num__atemp", "num__windspeed"],
-            ],
+            # "monotonicity_constraints": [
+            #     [],
+            #     ["num__atemp"],
+            #     ["num__windspeed"],
+            #     ["num__atemp", "num__windspeed"],
+            # ],
         }
     )
     name_mapping: dict = field(
