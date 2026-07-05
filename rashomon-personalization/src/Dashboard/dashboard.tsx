@@ -20,7 +20,7 @@ export function prepareData(dashboardData: DashboardData): Data[] {
                 y: dashboardData.Y,
                 type: 'scatter',
                 mode: 'lines',
-                line: {shape: 'hv'},
+                line: {shape: dashboardData.smooth === false ? 'hv': 'spline'},
                 name: dashboardData.feat_name,
             }]
         case "interaction":

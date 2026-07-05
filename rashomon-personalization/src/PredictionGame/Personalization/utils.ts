@@ -1,5 +1,11 @@
 import {type HyperParameterLevels} from "./data.tsx";
 
+export function offsets(
+  configurationUniverse: HyperParameterLevels,
+): number[] {
+  return Object.values(configurationUniverse).map((vals) => vals.length);
+}
+
 export function assembleFeatureEncoding(
   length: number,
   indices: number[],
@@ -17,10 +23,4 @@ export function cumulativeSum(arr: number[]): number[] {
       (sum += value)
   )(0);
   return arr.map(acc);
-}
-
-export function offsets(
-  configurationUniverse: HyperParameterLevels,
-): number[] {
-  return Object.values(configurationUniverse).map((vals) => vals.length);
 }

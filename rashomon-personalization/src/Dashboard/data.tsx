@@ -1,4 +1,28 @@
-import allData from '../assets/rashomon_study_data_459bc8bb-cf86-40cd-86b0-c9daeb0bfb9d.json';
+const dataModules = import.meta.glob('../assets/rashomon_study_data_*.json', { eager: true }) as Record<string, any>;
+
+const mergedData: any = {
+  metaData: { hyperparameterLevels: {} },
+  configurationData: {}
+};
+
+for (const path in dataModules) {
+  const mod = dataModules[path].default || dataModules[path];
+  if (!mod.metaData || !mod.configurationData) continue;
+
+  for (const [hp, levels] of Object.entries(mod.metaData.hyperparameterLevels)) {
+    if (!mergedData.metaData.hyperparameterLevels[hp]) {
+      mergedData.metaData.hyperparameterLevels[hp] = new Set();
+    }
+    (levels as string[]).forEach((l: string) => mergedData.metaData.hyperparameterLevels[hp].add(l));
+  }
+  Object.assign(mergedData.configurationData, mod.configurationData);
+}
+
+for (const hp in mergedData.metaData.hyperparameterLevels) {
+  mergedData.metaData.hyperparameterLevels[hp] = Array.from(mergedData.metaData.hyperparameterLevels[hp]);
+}
+
+const allData = mergedData;
 
 interface MetaData {
   hyperparameterLevels: Record<string, string[]>
@@ -10,6 +34,7 @@ export interface DashboardData {
   Z: Array<Array<number>> | null;
   type: "numerical" | "categorical" | "interaction"
   feat_name: string;
+  smooth: boolean | null;
   x_ticks: Array<number> | null;
   y_ticks: Array<number> | null;
   x_labels: Array<string> | null;

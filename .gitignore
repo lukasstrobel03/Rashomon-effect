@@ -7,3 +7,11 @@ __pycache__
 .vscode
 # validation dataset
 validation_datasets
+plots/
+models/
+scores/
+data/
+raw_data_old/
+assets_old/
+assets_tmp/
+models_current/

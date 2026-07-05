@@ -20,7 +20,7 @@ class Config:
     target: str = field(default_factory=lambda: "cnt")
     test_size: float = 0.3
     random_state: int = 42
-    model_save_path: str = "models/"
+    model_save_path: str = "models"
     ebm_parameters: dict = field(
         default_factory=lambda: {
             "max_bins": [8, 16, 256],
@@ -35,10 +35,10 @@ class Config:
     )
     igann_parameters: dict = field(
         default_factory=lambda: {
-            "n_estimators": [5000],  # Maximale Iterationen
-            "boost_rate": [0.25],     # Lernrate
-            "n_hid": [10, 50, 75],             # Hidden Neurons pro Feature
-            "elm_scale": [1, 5, 50],           # Skalierung der Gewichte ,
+            "n_estimators": [7000], 
+            "boost_rate": [0.15, 0.25, 0.5],   
+            "n_hid": [10, 20, 50],  
+            "elm_scale": [5, 10, 20],
         }
     )
     parameters: dict = field(
@@ -49,12 +49,12 @@ class Config:
                 ("num__weekday",),
                 ("num__windspeed", "num__weekday"),
             ],
-            "monotonicity_constraints": [
-                [],
-                ["num__atemp"],
-                ["num__windspeed"],
-                ["num__atemp", "num__windspeed"],
-            ],
+                # "monotonicity_constraints": [
+                #     [],
+                #     ["num__atemp"],
+                #     ["num__windspeed"],
+                #     ["num__atemp", "num__windspeed"],
+                # ],
         }
     )
     name_mapping: dict = field(

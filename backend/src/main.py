@@ -31,6 +31,8 @@ plots = Plots()
 logger.remove()
 logger.add(sys.stderr, level="DEBUG")
 
+CATEGORICAL_FEATURES = {"cat__workingday_1"}
+
 def create_step_points(X, Y, num_points):
     artificial_points_X = []
     artificial_points_Y = []
@@ -59,6 +61,7 @@ def add_plot_data(
     x_name: str,
     y_name: str,
     model: ModelWrapper,
+    smooth: bool | None = None,
     Z: List[float] | None = None,
     x_labels: List[int | str] | None = None,
     y_labels: List[int | str] | None = None,
@@ -75,10 +78,7 @@ def add_plot_data(
 
     X = np.round(X, 2)
 
-    if plot_type == "interaction":
-        Y = np.round(Y, 2)
-    else:
-        Y = np.round(Y)
+    Y = np.round(Y, 2)
 
     if Z is not None:
         Z = np.round(Z)
@@ -98,6 +98,7 @@ def add_plot_data(
             "y_ticks": y_ticks,
             "x_min": x_min,
             "x_max": x_max,
+            "smooth": smooth,
         }
     )
 
@@ -176,11 +177,11 @@ def build_gam_terms(feature_names: list[str], model_params, params) -> TermList:
         ("num__hr", "num__atemp"), 
         ("num__hr", "num__weekday"),
     ]
-    CATEGORICAL_FEATURES = config.categorical_cols
+    categorical_cols = config.categorical_cols
     terms = []
 
     for i, name in enumerate(feature_names):
-        if name in CATEGORICAL_FEATURES:
+        if name in categorical_cols:
             terms.append(f(i))
         elif name in params["monotonicity_constraints"] and name not in params["exclude"]:
             terms.append(s(i, n_splines=model_params["n_splines"], penalties=model_params["penalties"], constraints="monotonic_inc"))
@@ -203,7 +204,7 @@ def get_right_parameters(model_type: str) -> dict:
     elif model_type == "gam":
         return {**config.gam_parameters, **config.parameters}
     elif model_type == "igann":
-        return {**config.parameters, **config.igann_parameters}
+        return {**config.igann_parameters, **config.parameters}
     
 def train_model(
     X_train: pd.DataFrame,
@@ -215,10 +216,18 @@ def train_model(
 ) -> None:
 
     param_grid_dict = list(ParameterGrid(get_right_parameters(model_type)))
-    logger.info(f"Number of parameter options: {len(param_grid_dict)}\n\n")
+    sorted_param_grid = []
+    
+    for params in param_grid_dict:
+        # for param in list(params["exclude"]):
+            # if param in params["monotonicity_constraints"]:
+            #     continue
+        sorted_param_grid.append(params) 
 
-    for i, params in enumerate(param_grid_dict):
-        logger.info(f"Training model {i + 1} of {len(param_grid_dict)}")
+    logger.info(f"Number of parameter options: {len(sorted_param_grid)}\n\n")
+
+    for i, params in enumerate(sorted_param_grid):
+        logger.info(f"Training model {i + 1} of {len(sorted_param_grid)}")
         logger.info(params)
 
         model_params = {
@@ -271,9 +280,12 @@ def train_model(
         elif model_type == "igann":
             model = IGANNWrapper(
                 feature_names=feature_names,
+                excluded=params["exclude"],
+                #monotonicty_constraints=params["monotonicity_constraints"],
                 **model_params
             )
             model.fit(X_train_selected, y_train)
+            debug_interaction_issue(model)
 
         score = model.score(X_test_selected, y_test)
         logger.debug(f"R^2 score: {score:.6f} Params: {params}")
@@ -286,17 +298,10 @@ def train_model(
             pickle.dump(model.get_raw_model(), f)
 
         plots.data.append(dict(copy.deepcopy(params), score=score))
-        if model_type != "igann":
+        if model_type == "igann":
+            plot_igann_interaction_plots(model, model_path)
+        else:
             create_plots(model, model_path)
-        elif model_type == "igann":
-            create_igann_plots(model)
-
-def create_igann_plots(model: IGANNWrapper) -> None:
-    """Create the specific IGANN plots."""
-    pass
-
-
-
 
 FEATURE_ABBREV = {
     "num__windspeed": "ws",
@@ -319,8 +324,8 @@ def _params_to_dir_name(params: dict) -> str:
             "n_splines": "nspl",
             "boost_rate": "bt",
             "n_hid": "n_hid",
-            "n_estimators": "est",            
-            "act": "ac"
+            "n_estimators": "est",              
+            "elm_scale": "esc",
         }.get(key, key)
 
         if isinstance(value, tuple):
@@ -358,7 +363,7 @@ def create_plots(model: ModelWrapper, model_path: str | os.PathLike):
             _create_interaction_plot(model_path, feat_data, feat_name)
 
             y_values = feat_data["right_names"]
-            if len(y_values) == 3:
+            if feature_name_right in CATEGORICAL_FEATURES:
                 y_ticks = [0.25, 0.75]
                 y_labels = ["No", "Yes"]
             else:
@@ -427,6 +432,7 @@ def create_plots(model: ModelWrapper, model_path: str | os.PathLike):
                 feat_name,
                 "Effect on Prediction",
                 model,
+                smooth=False if isinstance(model, EBMWrapper) else True,
                 x_min=x_min,
                 x_max=x_max,
                 x_labels=(
@@ -435,6 +441,155 @@ def create_plots(model: ModelWrapper, model_path: str | os.PathLike):
                     if feat_name == "num__weekday" else None
                 ),
             )
+
+
+def plot_igann_interaction_plots(model: "IGANNWrapper", model_path: str | os.PathLike):
+    create_igann_plots(model, model_path)
+
+
+def create_igann_plots(model: "IGANNWrapper", model_path: str | os.PathLike):
+    os.makedirs(f"{model_path}/jpg/", exist_ok=True)
+    os.makedirs(f"{model_path}/svg/", exist_ok=True)
+
+    term_names = model.get_term_names()
+
+    for index, feat_name in enumerate(term_names):
+        logger.debug(f"Create IGANN plot for {feat_name}.")
+        feat_data = model.get_shape_data(index)
+
+        if feat_data["type"] == "interaction":
+            feature_name_left, feature_name_right = feat_name.split(" & ")
+            surface = model.get_interaction_surface(feature_name_left, feature_name_right)
+            _create_interaction_plot(model_path, surface, feat_name)
+
+            y_values = surface["right_names"]
+            if feature_name_right in CATEGORICAL_FEATURES:
+                y_ticks = [0, 1]
+                y_labels = ["No", "Yes"]
+            else:
+                y_ticks = None
+                y_labels = None
+
+            add_plot_data(
+                index,
+                np.array(surface["left_names"]),
+                surface["right_names"],
+                "interaction",
+                feat_name,
+                feature_name_left,
+                feature_name_right,
+                model,
+                Z=np.transpose(surface["scores"]),
+                y_ticks=y_ticks,
+                y_labels=y_labels,
+            )
+
+        elif feat_data["type"] == "categorical":
+            _create_igann_cat_plot(model_path, feat_data, feat_name)
+
+            class_to_x = {"0": 0.25, "1": 0.75}
+            paired = sorted(
+                zip(feat_data["x"], feat_data["y"]),
+                key=lambda pair: class_to_x.get(str(pair[0]), 0.0),
+            )
+            x_numeric = [class_to_x.get(str(cls), 0.0) for cls, _ in paired]
+            y_numeric = [val for _, val in paired]
+
+            add_plot_data(
+                index,
+                [x_numeric[0], x_numeric[-1]],
+                [y_numeric[0], y_numeric[-1]],
+                "categorical",
+                feat_name,
+                feat_name,
+                "Effect on Prediction",
+                model,
+                x_ticks=[0.25, 0.75],
+                x_labels=["No", "Yes"],
+            )
+
+        else:  # numerical
+            x_values_original = model.inverse_transform_feature(feat_name, feat_data["x"])
+            feat_data_original = {**feat_data, "x": x_values_original}
+            _create_igann_num_plot(model_path, feat_data_original, feat_name)
+
+            y_values = np.array(feat_data["y"])
+
+            x_min = config.df_original[feat_name.split("__")[1]].min()
+            x_max = config.df_original[feat_name.split("__")[1]].max()
+
+            add_plot_data(
+                index,
+                x_values_original,
+                y_values,
+                "numerical",
+                feat_name,
+                feat_name,
+                "Effect on Prediction",
+                model,
+                smooth=True,
+                x_min=x_min,
+                x_max=x_max,
+                x_labels=(
+                    ["Sunday", "Monday", "Tuesday", "Wednesday",
+                     "Thursday", "Friday", "Saturday"]
+                    if feat_name == "num__weekday" else None
+                ),
+            )
+
+
+def _create_igann_cat_plot(model_path, feat_data: dict, feat: str):
+    os.makedirs(f"{model_path}/jpg/", exist_ok=True)
+    os.makedirs(f"{model_path}/svg/", exist_ok=True)
+
+    try:
+        paired = sorted(zip(feat_data["x"], feat_data["y"]), key=lambda pair: str(pair[0]))
+        x_values = [str(cls) for cls, _ in paired]
+        y_values = [val for _, val in paired]
+
+        plt.title(f"{feat} Feature Effect")
+        plt.xlabel(f"{feat}'s value")
+        plt.ylabel("Effect on Prediction")
+        plt.bar(x_values, y_values)
+        plt.savefig(f"{model_path}/jpg/{feat}.jpg", format="jpg", dpi=300)
+        plt.savefig(f"{model_path}/svg/{feat}.svg", format="svg")
+    except FileNotFoundError as e:
+        logger.error(f"Could not create IGANN categorical plot: {e}")
+    finally:
+        plt.close()
+
+
+def _create_igann_num_plot(model_path, feat_data: dict, feat: str):
+    os.makedirs(f"{model_path}/jpg/", exist_ok=True)
+    os.makedirs(f"{model_path}/svg/", exist_ok=True)
+
+    try:
+        x_values = np.array(feat_data["x"])
+        y_values = np.array(feat_data["y"])
+        order = np.argsort(x_values)
+
+        plt.xlim(
+            config.df_original[feat.split("__")[1]].min(),
+            config.df_original[feat.split("__")[1]].max(),
+        )
+        plt.title(f"{feat} Feature Effect")
+        plt.xlabel(f"{feat}'s value")
+        plt.ylabel("Effect on Prediction")
+
+        if feat == "num__weekday":
+            plt.xticks(
+                ticks=range(7),
+                labels=["Sunday", "Monday", "Tuesday", "Wednesday",
+                        "Thursday", "Friday", "Saturday"],
+            )
+
+        plt.plot(x_values[order], y_values[order])
+        plt.savefig(f"{model_path}/jpg/{feat}.jpg", format="jpg", dpi=300)
+        plt.savefig(f"{model_path}/svg/{feat}.svg", format="svg")
+    except FileNotFoundError as e:
+        logger.error(f"Directory for IGANN numeric plot doesn't exist: {e}")
+    finally:
+        plt.close()
 
 
 def _create_cat_plot(model_path, feat_data: dict, feat: str):
@@ -497,6 +652,7 @@ def _create_num_plot(model_path, feat_data: dict, feat: str, model: ModelWrapper
 
 def _create_interaction_plot(model_path, feat_data: dict, feat_name: str):
     safe_feat_name = feat_name.replace(" & ", "__x__").replace(" ", "_")
+    feature_name_left, feature_name_right = feat_name.split(" & ")
 
     os.makedirs(f"{model_path}/jpg/", exist_ok=True)
     os.makedirs(f"{model_path}/svg/", exist_ok=True)
@@ -510,7 +666,6 @@ def _create_interaction_plot(model_path, feat_data: dict, feat_name: str):
             shading="auto",
         )
         fig.colorbar(im, ax=ax)
-        feature_name_left, feature_name_right = feat_name.split(" & ")
         plt.xlabel(feature_name_left)
         plt.ylabel(feature_name_right)
         plt.title(f"Feature: {feature_name_right} x {feature_name_left}")
@@ -527,14 +682,15 @@ def __calculate_y_values(names, scores):
     else:
         return scores
 
+
 def main() -> None:
     df = load_data()
     X_train, X_test, y_train, y_test, ct = preprocess_data(df)
-    train_model(X_train, X_test, y_train, y_test, ct, "igann")
+    train_model(X_train, X_test, y_train, y_test, ct, "igann") 
     scores_df = pd.DataFrame(plots.data)
     scores_df.to_csv("scores.csv", index=False)
     scores_df.to_excel("scores.xlsx", index=False)
-    scores_df.to_json("plot_data.json", orient="records")
+    scores_df.to_json("plot_data.json", orient="records", indent=2)
 
 if __name__ == "__main__":
     main()

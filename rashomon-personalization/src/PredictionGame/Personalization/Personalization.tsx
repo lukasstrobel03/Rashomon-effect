@@ -14,7 +14,7 @@ import {Reward} from "./bandit.ts";
 import styles from "./index.module.css"
 import MarkdownBox from "../../utils/MarkdownBox/MarkdownBox.tsx";
 
-const configurationLookup = normalizedData.configurationData
+const configurationLookup = normalizedData.configurationData ?? {}
 
 interface PersonalizationProps {
     onNext: (personaliationContext: Context) => void
