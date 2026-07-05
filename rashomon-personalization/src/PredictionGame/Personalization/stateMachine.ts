@@ -1,5 +1,6 @@
 import {createMachine, assign, not} from "xstate";
-import {type Encoding, type UserContext, type Reward, updateContext, selectEncoding, initializeContext} from "./bandit.ts";
+import type { Encoding, UserContext } from "./bandit.ts"
+import { type Reward, updateContext, selectEncoding, initializeContext } from "./bandit.ts";
 import {type DashboardDataByConfiguration, normalizedData} from "./data.tsx";
 import {v4 as uuid4} from "uuid";
 import {AnalyticsEvent, sendAnalyticsEvent} from "../analytics.ts";
@@ -35,18 +36,27 @@ export interface MachineTypes {
   input: Input;
 }
 
-const configurationLookup = normalizedData.configurationData
+const configurationLookup = normalizedData.configurationData ?? {}
 
 const selectFromRashomonSet = (
     userContext: UserContext,
     configurationLookup: DashboardDataByConfiguration,
     selectFromSample: boolean): Encoding => {
 
-    const encodingCandidate = selectEncoding(userContext, selectFromSample)
+    const availableEncodings = Object.keys(configurationLookup);
+    if (availableEncodings.length === 0) {
+        throw new Error("No dashboard configurations available for personalization.");
+    }
 
-    return JSON.stringify(encodingCandidate) in configurationLookup ?
-        encodingCandidate :
-        selectFromRashomonSet(userContext, configurationLookup, true)
+    const maxAttempts = 1000;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const encodingCandidate = selectEncoding(userContext, selectFromSample || attempt > 0);
+        if (Object.prototype.hasOwnProperty.call(configurationLookup, JSON.stringify(encodingCandidate))) {
+            return encodingCandidate;
+        }
+    }
+
+    return JSON.parse(availableEncodings[Math.floor(Math.random() * availableEncodings.length)]) as Encoding;
 }
 
 export const stateMachine = createMachine(

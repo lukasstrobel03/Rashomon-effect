@@ -24,6 +24,7 @@ function prepareData(y: number[], feat_name: string) : DashboardData {
         x_ticks: [...Array(y.length).keys()],
         y_ticks: null,
         y_labels: null,
+        smooth: null,
     }
     return preparedData
 }

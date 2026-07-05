@@ -42,11 +42,20 @@ const selectFromRashomonSet = (
     configurationLookup: DashboardDataByConfiguration,
     selectFromSample: boolean): Encoding => {
 
-    const encodingCandidate = selectEncoding(userContext, selectFromSample)
+    const availableEncodings = Object.keys(configurationLookup);
+    if (availableEncodings.length === 0) {
+        throw new Error("No dashboard configurations available for personalization.");
+    }
 
-    return JSON.stringify(encodingCandidate) in configurationLookup ?
-        encodingCandidate :
-        selectFromRashomonSet(userContext, configurationLookup, true)
+    const maxAttempts = 1000;
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+        const encodingCandidate = selectEncoding(userContext, selectFromSample || attempt > 0);
+        if (Object.prototype.hasOwnProperty.call(configurationLookup, JSON.stringify(encodingCandidate))) {
+            return encodingCandidate;
+        }
+    }
+
+    return JSON.parse(availableEncodings[Math.floor(Math.random() * availableEncodings.length)]) as Encoding;
 }
 
 export const stateMachine = createMachine(

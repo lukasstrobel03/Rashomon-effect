@@ -11,6 +11,7 @@ import BoxCol from "../../utils/BoxCol/BoxCol.tsx";
 import BoxRow from "../../utils/BoxRow/BoxRow.tsx";
 import {Input} from "../stateMachine.ts";
 import {Context} from "./stateMachine.ts";
+import {useEffect} from "react";
 
 const configurationLookup = normalizedData.configurationData
 
@@ -35,15 +36,40 @@ bike-sharing usage.
 const Personalization: React.FC<PersonalizationProps> = ({onNext, machineInput}) : JSX.Element => {
 
     const [snapshot, send] = useMachine(stateMachine, {input: machineInput});
+    const currentResponse = snapshot.context?.responseStack?.[0];
 
-    const encoding = snapshot.context.responseStack[0].encoding
-    const isAttentionCheck = snapshot.context.responseStack[0].isAttentionCheck
+    useEffect(() => {
+        if (snapshot.status === "done") {
+            const doneContext = (snapshot.output ?? snapshot.context) as Context | undefined;
+            if (doneContext) {
+                onNext(doneContext);
+            }
+        }
+    }, [snapshot.status, snapshot.output, snapshot.context, onNext]);
+
+    if (!currentResponse) {
+        return (
+            <div>
+                <BackgroundContainer>
+                    <BoxCol>
+                        <BoxRow>
+                            <Box color={"green"}>
+                                <Box color={"transparent"}>
+                                    <MarkdownBox markdown={"Preparing the next dashboard..."}/>
+                                </Box>
+                            </Box>
+                        </BoxRow>
+                    </BoxCol>
+                </BackgroundContainer>
+            </div>
+        );
+    }
+
+    const encoding = currentResponse.encoding
+    const isAttentionCheck = currentResponse.isAttentionCheck
 
     const handleClick = (answer: string) : void => {
-        if(snapshot.status === "done"){
-            onNext(snapshot.context)
-        }
-        const id = snapshot.context.responseStack[0].id
+        const id = currentResponse.id
         const reward = ["6", "7"].includes(answer) ? "+1" : "-1"
         send({
                 type: "requestEncoding",

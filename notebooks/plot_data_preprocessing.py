@@ -6,6 +6,8 @@ import pandas as pd
 from functools import reduce
 
 def adjust_plot_datum(plot_datum: dict) -> dict:
+    if isinstance(plot_datum.get("type"), str):
+        plot_datum = {**plot_datum, "type": plot_datum["type"].strip("'")}
     time_ticks = [0, 6, 12, 18]
     time_labels = ["00:00", "06:00", "12:00", "18:00"]
     # Handle different naming conventions (e.g. GAM might use 'name' instead of 'feat_name')
@@ -74,7 +76,7 @@ def prepare_data_for_study_frontend(raw_data: dict) -> dict:
         raise ValueError("Datensatz enthaelt nicht die benoetigte 'plot_data' Array-Struktur (moeglicherweise nur einzelner Plot).")
 
     # Dynamische Erkennung aller relevanten Hyperparameter-Spalten
-    possible_hyperparameters = ["exclude", "max_bins", "min_samples_leaf", "n_splines", "penalties", "monotonicity_constraints"]
+    possible_hyperparameters = ["exclude", "max_bins", "min_samples_leaf", "n_splines", "penalties", "monotonicity_constraints", "boost_rate", "n_estimators", "elm_scale", "n_hid"]
     actual_hyperparameters = [hp for hp in possible_hyperparameters if hp in df.columns]
 
     encodings, sorted_hyper_parameter_levels = zip(*[

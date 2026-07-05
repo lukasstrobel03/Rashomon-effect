@@ -1,4 +1,4 @@
-import { assembleFeatureEncoding, cumulativeSum, offsets } from "./utils.ts";
+import { assembleFeatureEncoding, cumulativeSum, offsets } from "../utils.ts";
 import { type HyperParameterLevels } from "./data.tsx";
 
 type Encoding = number[];

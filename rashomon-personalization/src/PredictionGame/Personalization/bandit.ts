@@ -1,5 +1,5 @@
 import gaussian from "gaussian";
-import { assembleFeatureEncoding, cumulativeSum, offsets } from "./utils";
+import { assembleFeatureEncoding, cumulativeSum, offsets } from "./utils.ts";
 import {normalizedData} from "./data.tsx";
 
 export type Encoding = number[]

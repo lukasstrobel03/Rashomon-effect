@@ -57,6 +57,29 @@ const DashboardOverview: React.FC = () => {
     }
     };
 
+    // ── DEBUG START ──────────────────────────────────────────────────────────
+    const currentConfig = configurationLookup[JSON.stringify(encoding)];
+    console.log('[DashboardOverview] encoding key:', JSON.stringify(encoding));
+    console.log('[DashboardOverview] currentConfig found:', !!currentConfig);
+    if (currentConfig) {
+        console.log('[DashboardOverview] plotData length:', currentConfig.plotData?.length);
+        console.log('[DashboardOverview] score:', currentConfig.score);
+        currentConfig.plotData?.forEach((plot, i) => {
+            console.log(
+                `[DashboardOverview] plot[${i}]`,
+                '| feat_name:', plot.feat_name,
+                '| type:', JSON.stringify(plot.type),
+                '| smooth:', plot.smooth,
+                '| X[0]:', plot.X?.[0],
+                '| Y[0]:', plot.Y?.[0],
+            );
+        });
+    } else {
+        console.warn('[DashboardOverview] currentConfig is undefined! Key not found in configurationLookup.');
+        console.log('[DashboardOverview] available keys (first 3):', Object.keys(configurationLookup).slice(0, 3));
+    }
+    // ── DEBUG END ────────────────────────────────────────────────────────────
+
     return (
         <div>
             <BackgroundContainer>

@@ -31,10 +31,6 @@ plots = Plots()
 logger.remove()
 logger.add(sys.stderr, level="DEBUG")
 
-# Single source of truth for which features are categorical, shared by the
-# EBM/GAM plotting path (create_plots) and the IGANN plotting path
-# (create_igann_plots), so axis-labeling logic ("No"/"Yes" ticks) doesn't
-# rely on fragile heuristics like checking len(values) == 3.
 CATEGORICAL_FEATURES = {"cat__workingday_1"}
 
 def create_step_points(X, Y, num_points):
@@ -82,10 +78,7 @@ def add_plot_data(
 
     X = np.round(X, 2)
 
-    if plot_type == "interaction":
-        Y = np.round(Y, 2)
-    else:
-        Y = np.round(Y)
+    Y = np.round(Y, 2)
 
     if Z is not None:
         Z = np.round(Z)
@@ -225,16 +218,16 @@ def train_model(
     param_grid_dict = list(ParameterGrid(get_right_parameters(model_type)))
     sorted_param_grid = []
     
-    # for params in param_grid_dict:
-    #     for param in list(params["exclude"]):
-    #         if param in params["monotonicity_constraints"]:
-    #             continue
-    #         sorted_param_grid.append(params) 
+    for params in param_grid_dict:
+        # for param in list(params["exclude"]):
+            # if param in params["monotonicity_constraints"]:
+            #     continue
+        sorted_param_grid.append(params) 
 
-    logger.info(f"Number of parameter options: {len(param_grid_dict)}\n\n")
+    logger.info(f"Number of parameter options: {len(sorted_param_grid)}\n\n")
 
-    for i, params in enumerate(param_grid_dict):
-        logger.info(f"Training model {i + 1} of {len(param_grid_dict)}")
+    for i, params in enumerate(sorted_param_grid):
+        logger.info(f"Training model {i + 1} of {len(sorted_param_grid)}")
         logger.info(params)
 
         model_params = {
@@ -245,12 +238,12 @@ def train_model(
 
         feature_names = [
             feat for feat in ct.get_feature_names_out()
-            if feat not in params["exclude"]
+            if feat not in config.parameters["exclude"]
         ]
         excluded_features_index = [
             list(ct.get_feature_names_out()).index(feat)
             for feat in ct.get_feature_names_out()
-            if feat in params["exclude"]
+            if feat in config.parameters["exclude"]
         ]
         X_train_selected = np.delete(X_train, excluded_features_index, axis=1)
         X_test_selected = np.delete(X_test, excluded_features_index, axis=1)
@@ -288,6 +281,7 @@ def train_model(
             model = IGANNWrapper(
                 feature_names=feature_names,
                 excluded=params["exclude"],
+                #monotonicty_constraints=params["monotonicity_constraints"],
                 **model_params
             )
             model.fit(X_train_selected, y_train)
@@ -332,7 +326,6 @@ def _params_to_dir_name(params: dict) -> str:
             "n_hid": "n_hid",
             "n_estimators": "est",              
             "elm_scale": "esc",
-            "act": "act",
         }.get(key, key)
 
         if isinstance(value, tuple):
@@ -451,31 +444,10 @@ def create_plots(model: ModelWrapper, model_path: str | os.PathLike):
 
 
 def plot_igann_interaction_plots(model: "IGANNWrapper", model_path: str | os.PathLike):
-    """
-    Public entry point for IGANN plotting, called from train_model().
-
-    Despite the name (kept for continuity with the original prototype),
-    this creates the full set of plots for an IGANN model — numerical,
-    categorical, AND interaction — not just interactions. It delegates to
-    create_igann_plots(), which mirrors create_plots()'s dispatch logic
-    but reads IGANN's own get_shape_functions_as_dict() schema instead of
-    the EBM/GAM "names"/"scores" schema.
-    """
     create_igann_plots(model, model_path)
 
 
 def create_igann_plots(model: "IGANNWrapper", model_path: str | os.PathLike):
-    """
-    Creates numerical, categorical, and interaction plots for an IGANNWrapper.
-
-    IGANN's get_shape_functions_as_dict() uses a different schema than
-    EBM/GAM ("x"/"y"/"datatype" instead of "names"/"scores", and no native
-    2D interaction surfaces), so this mirrors create_plots()'s structure
-    but adapts the data extraction step accordingly. Interaction surfaces
-    are computed on demand via model.get_interaction_surface(), since IGANN
-    only fits interactions as engineered product columns, not as a
-    queryable 2D shape function like EBM/GAM.
-    """
     os.makedirs(f"{model_path}/jpg/", exist_ok=True)
     os.makedirs(f"{model_path}/svg/", exist_ok=True)
 
@@ -515,12 +487,6 @@ def create_igann_plots(model: "IGANNWrapper", model_path: str | os.PathLike):
         elif feat_data["type"] == "categorical":
             _create_igann_cat_plot(model_path, feat_data, feat_name)
 
-            # IGANN gives class labels as strings ("0"/"1"); add_plot_data
-            # expects numeric X (it calls np.round on it), and the existing
-            # 0.25/0.75 x_ticks convention from the EBM/GAM categorical path
-            # maps those ticks to "No"/"Yes" labels. Sort by class so "0"
-            # (No) always maps to 0.25 and "1" (Yes) to 0.75, regardless of
-            # the order IGANN happened to return them in.
             class_to_x = {"0": 0.25, "1": 0.75}
             paired = sorted(
                 zip(feat_data["x"], feat_data["y"]),
@@ -720,7 +686,7 @@ def __calculate_y_values(names, scores):
 def main() -> None:
     df = load_data()
     X_train, X_test, y_train, y_test, ct = preprocess_data(df)
-    train_model(X_train, X_test, y_train, y_test, ct, "igann")
+    train_model(X_train, X_test, y_train, y_test, ct, "igann") 
     scores_df = pd.DataFrame(plots.data)
     scores_df.to_csv("scores.csv", index=False)
     scores_df.to_excel("scores.xlsx", index=False)

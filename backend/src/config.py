@@ -36,9 +36,9 @@ class Config:
     igann_parameters: dict = field(
         default_factory=lambda: {
             "n_estimators": [7000], 
-            "boost_rate": [0.1, 0.2, 0.25],   
-            "n_hid": [10, 50, 75],  
-            "elm_scale": [5],
+            "boost_rate": [0.15, 0.25, 0.5],   
+            "n_hid": [10, 20, 50],  
+            "elm_scale": [5, 10, 20],
         }
     )
     parameters: dict = field(
@@ -49,12 +49,12 @@ class Config:
                 ("num__weekday",),
                 ("num__windspeed", "num__weekday"),
             ],
-            # "monotonicity_constraints": [
-            #     [],
-            #     ["num__atemp"],
-            #     ["num__windspeed"],
-            #     ["num__atemp", "num__windspeed"],
-            # ],
+                # "monotonicity_constraints": [
+                #     [],
+                #     ["num__atemp"],
+                #     ["num__windspeed"],
+                #     ["num__atemp", "num__windspeed"],
+                # ],
         }
     )
     name_mapping: dict = field(
