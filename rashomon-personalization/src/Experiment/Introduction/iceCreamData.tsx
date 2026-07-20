@@ -6,19 +6,19 @@ export const iceCreamPlotData: Record<string, DashboardData> = Object.fromEntrie
         x => [
             x.feat_name,
             {
-                X: x.X,
-                Y: x.Y,
-                Z: x.Z ?? null,
+                X: x.X as number[],
+                Y: x.Y as number[],
+                Z: (x.Z ?? null) as Array<Array<number>> | null,
                 type: x.type as "numerical" | "categorical" | "interaction",
                 feat_name: x.feat_name,
                 x_name: x.x_name,
                 y_name: x.y_name,
-                x_ticks: x.x_ticks ?? null,
-                y_ticks: x.y_ticks ?? null,
-                x_labels: x.x_labels ?? null,
-                y_labels: x.y_labels ?? null,
-                smooth: null,
-            } satisfies DashboardData
+                x_ticks: (x.x_ticks ?? null) as Array<number> | null,
+                y_ticks: (x.y_ticks ?? null) as Array<number> | null,
+                x_labels: (x.x_labels ?? null) as Array<string> | null,
+                y_labels: (x.y_labels ?? null) as Array<string> | null,
+                smooth: null as boolean | null,
+            } as DashboardData
         ]
     )
 )
