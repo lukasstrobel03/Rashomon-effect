@@ -38,7 +38,7 @@ export interface DashboardData {
   y_ticks: Array<number> | null;
   x_labels: Array<string> | null;
   y_labels: Array<string> | null;
-  smooth?: boolean | null;
+  smooth: boolean | null;
   x_name: string;
   y_name: string;
 }
