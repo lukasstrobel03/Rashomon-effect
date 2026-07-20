@@ -49,12 +49,12 @@ class Config:
                 ("num__weekday",),
                 ("num__windspeed", "num__weekday"),
             ],
-                # "monotonicity_constraints": [
-                #     [],
-                #     ["num__atemp"],
-                #     ["num__windspeed"],
-                #     ["num__atemp", "num__windspeed"],
-                # ],
+                "monotonicity_constraints": [
+                    [],
+                    ["num__atemp"],
+                    ["num__windspeed"],
+                    ["num__atemp", "num__windspeed"],
+                ],
         }
     )
     name_mapping: dict = field(

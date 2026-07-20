@@ -76,7 +76,22 @@ def prepare_data_for_study_frontend(raw_data: dict) -> dict:
         raise ValueError("Datensatz enthaelt nicht die benoetigte 'plot_data' Array-Struktur (moeglicherweise nur einzelner Plot).")
 
     # Dynamische Erkennung aller relevanten Hyperparameter-Spalten
-    possible_hyperparameters = ["exclude", "max_bins", "min_samples_leaf", "n_splines", "penalties", "monotonicity_constraints", "boost_rate", "n_estimators", "elm_scale", "n_hid"]
+    possible_hyperparameters = [
+        # general (EBM + GAM)
+        "exclude", 
+        "monotonicity_constraints", 
+        # EBM
+        "max_bins", 
+        "min_samples_leaf", 
+        # GAM
+        "n_splines", 
+        "penalties",
+        # IGANN 
+        "boost_rate", 
+        "n_estimators", 
+        "elm_scale", 
+        "n_hid"
+    ]
     actual_hyperparameters = [hp for hp in possible_hyperparameters if hp in df.columns]
 
     encodings, sorted_hyper_parameter_levels = zip(*[
