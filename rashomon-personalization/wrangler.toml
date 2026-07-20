@@ -4,6 +4,6 @@ pages_build_output_dir = "dist/"
 [[d1_databases]]
 binding = "AnalyticsStore"
 database_name = "analytics-store"
-database_id = "02b3ec1c-e6eb-43fc-9b47-1450053f9950"
+database_id = "328bacf2-5cd3-4441-a691-f9a95f1659ea"
 
 preview_database_id = "DB"
