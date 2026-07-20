@@ -8,7 +8,8 @@ export const iceCreamPlotData: Record<string, DashboardData> = Object.fromEntrie
             {
                 ...x,
                 type: (x.type as "numerical" | "categorical" | "interaction"),
-                name: x.feat_name
+                name: x.feat_name,
+                smooth: x.smooth,
             }
         ]
     )
