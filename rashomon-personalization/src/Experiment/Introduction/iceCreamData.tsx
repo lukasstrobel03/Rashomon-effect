@@ -6,11 +6,19 @@ export const iceCreamPlotData: Record<string, DashboardData> = Object.fromEntrie
         x => [
             x.feat_name,
             {
-                ...x,
-                type: (x.type as "numerical" | "categorical" | "interaction"),
-                name: x.feat_name,
+                X: x.X,
+                Y: x.Y,
+                Z: x.Z ?? null,
+                type: x.type as "numerical" | "categorical" | "interaction",
+                feat_name: x.feat_name,
+                x_name: x.x_name,
+                y_name: x.y_name,
+                x_ticks: x.x_ticks ?? null,
+                y_ticks: x.y_ticks ?? null,
+                x_labels: x.x_labels ?? null,
+                y_labels: x.y_labels ?? null,
                 smooth: null,
-            }
+            } satisfies DashboardData
         ]
     )
 )
