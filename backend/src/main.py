@@ -177,13 +177,13 @@ def build_gam_terms(feature_names: list[str], model_params, params) -> TermList:
         ("num__hr", "num__atemp"), 
         ("num__hr", "num__weekday"),
     ]
-    categorical_cols = config.categorical_cols
+    categorical_cols = ["cat__workingday_1"]
     terms = []
 
     for i, name in enumerate(feature_names):
         if name in categorical_cols:
-            terms.append(f(i))
-        elif name in params["monotonicity_constraints"] and name not in params["exclude"]:
+            terms.append(f(i, penalties=model_params["penalties"]))
+        if name in params["monotonicity_constraints"] and name not in params["exclude"]:
             terms.append(s(i, n_splines=model_params["n_splines"], penalties=model_params["penalties"], constraints="monotonic_inc"))
         else:
             terms.append(s(i, n_splines=model_params["n_splines"], penalties=model_params["penalties"]))
@@ -219,9 +219,13 @@ def train_model(
     sorted_param_grid = []
     
     for params in param_grid_dict:
-        # for param in list(params["exclude"]):
-            # if param in params["monotonicity_constraints"]:
-            #     continue
+        is_excluded = False
+        for param in list(params["exclude"]):
+            if param in params["monotonicity_constraints"]:
+                is_excluded = True
+                break
+        if is_excluded:
+            continue
         sorted_param_grid.append(params) 
 
     logger.info(f"Number of parameter options: {len(sorted_param_grid)}\n\n")
@@ -294,8 +298,8 @@ def train_model(
         model_dir += f"__score_{score:.6f}"
         model_path = f"{config.model_save_path}/{model_dir}"
         os.makedirs(model_path, exist_ok=True)
-        with open(f"{model_path}/model.pkl", "wb") as f:
-            pickle.dump(model.get_raw_model(), f)
+        with open(f"{model_path}/model.pkl", "wb") as file:
+            pickle.dump(model.get_raw_model(), file)
 
         plots.data.append(dict(copy.deepcopy(params), score=score))
         if model_type == "igann":
@@ -686,7 +690,7 @@ def __calculate_y_values(names, scores):
 def main() -> None:
     df = load_data()
     X_train, X_test, y_train, y_test, ct = preprocess_data(df)
-    train_model(X_train, X_test, y_train, y_test, ct, "igann") 
+    train_model(X_train, X_test, y_train, y_test, ct, "gam") 
     scores_df = pd.DataFrame(plots.data)
     scores_df.to_csv("scores.csv", index=False)
     scores_df.to_excel("scores.xlsx", index=False)
