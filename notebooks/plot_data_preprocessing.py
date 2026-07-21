@@ -23,21 +23,35 @@ def adjust_plot_datum(plot_datum: dict) -> dict:
                 "Y": plot_datum.get("Y", plot_datum.get("y"))
             }
         case "Weekday":
+            x_values = plot_datum.get("X", plot_datum.get("x", []))
+            y_values = plot_datum.get("Y", plot_datum.get("y", []))
+            
+            # Gruppiere Y-Werte nach gerundetem X (Wochentag 0-6)
+            from collections import defaultdict
+            groups = defaultdict(list)
+            for x, y in zip(x_values, y_values):
+                groups[round(x)].append(y)
+            
+            sampled_y = [
+                sum(groups[day]) / len(groups[day]) if groups[day] else 0
+                for day in range(7)
+            ]
             return {
                 **plot_datum,
                 "type": "categorical",
-                "X": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"]
+                "X": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
+                "Y": sampled_y,
             }
         case "Workingday x Time":
             return {
-                **plot_datum,
+                **filter_time_axis(plot_datum),
                 "y_labels": ["No", "Yes"],
                 "x_ticks": time_ticks,
                 "x_labels": time_labels
             }
         case "Weekday x Time":
             return {
-                **plot_datum,
+                **filter_time_axis(plot_datum),
                 "Y": ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"],
                 "x_ticks": time_ticks,
                 "x_labels": time_labels
@@ -50,9 +64,9 @@ def adjust_plot_datum(plot_datum: dict) -> dict:
             }
         case "Temperature x Time":
             return {
-                **plot_datum,
+                **filter_time_axis(plot_datum),
                 "x_ticks": time_ticks,
-                "x_labels": time_labels
+                "x_labels": time_labels,
             }
         case _:
             return plot_datum
@@ -138,5 +152,14 @@ def main():
         except ValueError as e:
             print(f" -> Uebersprungen: {e}")
 
+def filter_time_axis(plot_datum):
+    x_values = plot_datum.get("X", plot_datum.get("x", []))
+    z_values = plot_datum.get("Z", plot_datum.get("z", []))
+    
+    mask = [0 <= xi <= 24 for xi in x_values]
+    filtered_x = [xi for xi, m in zip(x_values, mask) if m]
+    filtered_z = [[val for val, m in zip(row, mask) if m] for row in z_values]
+    
+    return {**plot_datum, "X": filtered_x, "Z": filtered_z}
 if __name__ == "__main__":
     main()
