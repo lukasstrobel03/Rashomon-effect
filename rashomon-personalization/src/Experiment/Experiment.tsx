@@ -15,7 +15,7 @@ const sessionContext = (() : Omit<Input, "initialState"> => ({
   userId: uuidv4(),
   experimentTag: "managementInsights4",
   commitHash: "notImplemented",
-  group: Math.random() ? "Control" : "Treatment",
+  group: Math.random() < 0.5 ? "Control" : "Treatment",
 }))()
 
 const configurationLookup = normalizedData.configurationData

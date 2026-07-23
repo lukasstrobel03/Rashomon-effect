@@ -4,7 +4,7 @@ export interface AnalyticsEvent {
     commitHash: string;
     type: string;
     payload: object;
-    group: string;
+    group: "Control" | "Treatment";
 }
 
 export async function sendAnalyticsEvent(analyticsEvent: AnalyticsEvent) {
