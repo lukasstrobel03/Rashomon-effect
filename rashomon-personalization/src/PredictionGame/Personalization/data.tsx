@@ -58,9 +58,29 @@ function normalizeKeys(configurationData: DashboardDataByConfiguration) : Dashbo
   }, {} as DashboardDataByConfiguration)
 }
 
+function padEncoding(encoding: boolean[], targetLength: number): boolean[] {
+  if (encoding.length >= targetLength) return encoding;
+  return [...encoding, ...new Array(targetLength - encoding.length).fill(false)];
+}
+
+function padAllEncodings(configurationData: DashboardDataByConfiguration, targetLength: number): DashboardDataByConfiguration {
+  return Object.fromEntries(
+    Object.entries(configurationData).map(([key, value]) => {
+      const encoding = JSON.parse(key) as boolean[];
+      const paddedEncoding = padEncoding(encoding, targetLength);
+      return [JSON.stringify(paddedEncoding), value];
+    })
+  );
+}
+
+const normalizedConfigurationData = normalizeKeys(allData.configurationData as DashboardDataByConfiguration);
+
+const totalFeatures = Object.values(allData.metaData.hyperparameterLevels as Record<string, string[]>)
+  .reduce((acc, v) => acc + v.length, 0);
+
 export const normalizedData = {
   ...allData,
-  configurationData: normalizeKeys(allData.configurationData as DashboardDataByConfiguration)
+  configurationData: padAllEncodings(normalizedConfigurationData, totalFeatures)
 } as PlotData
 
 export const hyperParameterLevels: HyperParameterLevels = normalizedData.metaData.hyperparameterLevels
