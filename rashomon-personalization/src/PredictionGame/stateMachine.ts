@@ -109,6 +109,7 @@ export const machine = createMachine(
                 commitHash: context.commitHash,
                 type: params.type,
                 payload: {context, event},
+                group: context.group,
             } as AnalyticsEvent
         )}
     },

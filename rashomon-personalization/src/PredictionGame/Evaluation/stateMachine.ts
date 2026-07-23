@@ -146,6 +146,7 @@ export const stateMachine = createMachine(
                     commitHash: context.commitHash,
                     type: "EventTransition-Evaluation",
                     payload: {event},
+                    group: context.group,
                 } as AnalyticsEvent
             )}
     },
