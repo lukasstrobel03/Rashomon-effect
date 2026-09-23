@@ -7,7 +7,8 @@ import BackgroundContainer from "../../utils/BackgroundContainer/BackgroundConta
 import BoxCol from "../../utils/BoxCol/BoxCol.tsx";
 import BoxRow from "../../utils/BoxRow/BoxRow.tsx";
 import Box from "../../utils/Box/Box.tsx";
-import {MultiQuestionLikertForm} from "../../utils/LikertScale/MultiQuestionLikertForm.tsx";
+import PredictionQuestion from "../../utils/PredictionQuestion/PredictionQuestion.tsx";
+import {getRewardFromDifference} from "../Personalization/bandit.ts";
 
 interface ManagementInsightProps {
     encoding?: Encoding
@@ -17,8 +18,8 @@ interface ManagementInsightProps {
 const configurationLookup = normalizedData.configurationData
 
 const mdHelpfulnessIntro = `
-## Rate Your Dashboard's Helpfulness
-Now that you've generated insights, please rate how helpful you found your personalized dashboard.
+## Evaluate Your Final Model
+Use the final dashboard configuration to estimate the number of rented bikes for the following observation.
 `
 
 const HelpfulnessQuestion : React.FC<ManagementInsightProps> = (
@@ -39,22 +40,22 @@ const HelpfulnessQuestion : React.FC<ManagementInsightProps> = (
                             <BoxCol>
                                 <Box color={"transparent"}>
                                     <MarkdownBox markdown={mdHelpfulnessIntro}/>
-                                </Box>
-                            </BoxCol>
-                            <BoxCol>
-                                <Box color={"transparent"}>
-                                    <MultiQuestionLikertForm
-                                        questions={[{
-                                            id: "helpfulness-personalization",
-                                            question: "**How *helpful* was this dashboard configuration for generating insights?**",
-                                            isAttentionCheck: false
-                                        }]}
-                                        scale={{
-                                            options: ["1", "2", "3", "4", "5", "6", "7"],
-                                            leftLabel: "Not at all helpful",
-                                            rightLabel: "Very helpful"
+                                    <PredictionQuestion
+                                        plotData={configurationLookup[JSON.stringify(encoding)]?.plotData}
+                                        onSubmit={(userEstimate, groundTruth, modelPrediction) => {
+                                            const userDifference = Math.abs(userEstimate - groundTruth);
+                                            const modelDifference = Math.abs(modelPrediction - groundTruth);
+
+                                            onNext({
+                                                userEstimate,
+                                                groundTruth,
+                                                modelPrediction,
+                                                userDifference,
+                                                modelDifference,
+                                                userReward: getRewardFromDifference(userEstimate, groundTruth),
+                                                modelReward: getRewardFromDifference(modelPrediction, groundTruth),
+                                            });
                                         }}
-                                        onSubmit={(answers) => onNext({helfulnessAnswer: answers})}
                                     />
                                 </Box>
                             </BoxCol>
