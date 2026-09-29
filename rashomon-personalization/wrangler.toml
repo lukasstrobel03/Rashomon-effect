@@ -2,8 +2,8 @@ name = "rashomon-personalization"
 pages_build_output_dir = "dist/"
 
 [[d1_databases]]
-binding = "AnalyticsStore"
-database_name = "analytics-store"
-database_id = "328bacf2-5cd3-4441-a691-f9a95f1659ea"
+binding = "analytics_store_new_study"
+database_name = "analytics-store-new-study"
+database_id = "d72ee577-cf0d-4b21-9ac4-0eee9e60a14c"
 
 preview_database_id = "DB"

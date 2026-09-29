@@ -31,10 +31,11 @@ interface RewardPopupProps {
 
 const RewardPopup: React.FC<RewardPopupProps> = ({ reward, closePopup, estimate, groundTruth, modelPrediction }) => {
     const diff = Math.abs(estimate - groundTruth);
-    const isGoodEstimate = diff < 100;
+    const estimationDiff = Math.abs(0.2 * groundTruth)
+    const isGoodEstimate = diff < estimationDiff;
     const successMessage = isGoodEstimate ?
-        "### Your Estimate is off by less than 100 bikes. +1 Point." :
-        "### Your estimate is off by more than 100 bikes. 0 Points.";
+        `### Your Estimate is off by less than ${estimationDiff} bikes. +1 Point.` :
+        `### Your estimate is off by more than ${estimationDiff} bikes. 0 Points.`;
     const mdMessage = `
 ${successMessage}
 
