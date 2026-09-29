@@ -14,11 +14,6 @@ const markdown = `
 As CityRide's Resource Manager, you’ll generate insights for your supervisor using an AI prediction model. To 
 familiarize you with the AI prediction model, we’ll start with a simple example: predicting ice cream sales.
 
-## Ice Cream Sales Example
-
-We’ll show you how to interpret prediction visualizations that reveal patterns in ice cream sales. These same 
-principles will apply to understanding bike rental patterns later.
-
 ## What You'll Learn
 1. How to read and interpret prediction visualizations
 2. Ways to identify important patterns in data

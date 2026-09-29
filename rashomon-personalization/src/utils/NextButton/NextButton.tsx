@@ -31,7 +31,7 @@ const NextButton: React.FC<NextButtonProps> = ({
                         </>
                     ) : (
                         <>
-                            {!isValid ? label : 'Next'}
+                            {!isValid ? label : 'Submit'}
                             <ChevronRight size={20}/>
                         </>
                     )}

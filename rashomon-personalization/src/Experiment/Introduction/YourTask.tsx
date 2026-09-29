@@ -16,8 +16,8 @@ As CityRide's Resource Manager, you've learned how to interpret different types 
 
 CityRide is offering you the chance to find the perfect configuration to support your work. You'll:
 1. Review various effect plot configurations
-2. Rate each configuration based on how helpful you find it to generate insights
-3. Our system will select the best-suiting configuration based on your ratings
+2. Provide an estimate of the number of bikes rented on the selected day
+3. Our system will select the best-suiting configuration based on your estimations
 
 Remember: Your goal is to choose a configuration that will best help you generate 5 insightful observations about 
 bike-sharing patterns

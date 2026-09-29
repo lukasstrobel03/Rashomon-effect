@@ -89,9 +89,9 @@ function fmtBikeSharingHour(hour: BikeSharingHour) : string {
     const tempEntry = (hour.atemp * (50+16) -16).toFixed(2)
     const windEntry = (hour.windspeed).toFixed(2)
     const mdTable = `
-| Season         | Weekday         | Workday         | Time       | Temperature  | Wind Speed   |
-| :--------------| :---------------| :-------------- | :--------- | :----------- | :----------- |
-| ${hour.season} | ${hour.weekday} | ${workdayEntry} | ${hour.hr} | ${tempEntry} | ${windEntry} |
+| Weekday         | Workday         | Time       | Temperature  | Wind Speed   |
+| :---------------| :-------------- | :--------- | :----------- | :----------- |
+| ${hour.weekday} | ${workdayEntry} | ${hour.hr} | ${tempEntry} | ${windEntry} |
 `
     return mdTable
 }

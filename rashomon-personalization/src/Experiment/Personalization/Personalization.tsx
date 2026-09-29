@@ -63,7 +63,7 @@ This is the current bonus after ${roundCount} round${roundCount === 1 ? "" : "s"
             <div className={styles.popup}>
                 <MarkdownBox markdown={mdMessage}/>
                 <div className={styles.popupActions}>
-                    <button type="button" className={styles.closeButton} onClick={closePopup}>Close</button>
+                    <button type="button" className={styles.closeButton} onClick={closePopup}>Next</button>
                 </div>
             </div>
         </>
@@ -86,7 +86,6 @@ const Personalization: React.FC<PersonalizationProps> = ({onNext, machineInput})
     const [bonusAmount, setBonusAmount] = useState<number>(0)
     const [roundCount, setRoundCount] = useState<number>(0)
     const [showPopup, setShowPopup] = useState(false);
-    const [countdown, setCountdown] = useState(300);
 
     useEffect(() => {
         if (snapshot.status === "done") {
@@ -133,18 +132,6 @@ const Personalization: React.FC<PersonalizationProps> = ({onNext, machineInput})
         setShowPopup(false);
     };
 
-    useEffect(() => {
-        const timer = setInterval(() => {
-            setCountdown((prev) => prev - 1);
-        }, 1000);
-
-        if (countdown === 0) {
-            clearInterval(timer)
-            onNext(snapshot.context)
-        }
-        return () => clearInterval(timer);
-    }, [showPopup, countdown, onNext, snapshot.context]);
-
     if (!currentResponse) {
         return (
             <div>
@@ -182,7 +169,6 @@ const Personalization: React.FC<PersonalizationProps> = ({onNext, machineInput})
                     <BoxRow>
                         <Box color={"green"}>
                             <Box color={"transparent"}>
-                                <MarkdownBox markdown={`${String(countdown)}s remaining`}/>
                                 <PredictionQuestion
                                     plotData={configurationLookup[JSON.stringify(encoding)]?.plotData ?? []}
                                     onSubmit={handleClick}
