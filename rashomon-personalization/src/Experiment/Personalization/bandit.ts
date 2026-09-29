@@ -15,6 +15,14 @@ export function getRewardFromDifference(userEstimate: number, trueValue: number,
   return difference < tolerance ? "+1" : "-1";
 }
 
+export function getRewardFromRelativeDifference(userEstimate: number, trueValue: number, tolerance = 0.20): Reward {
+  if (!Number.isFinite(userEstimate) || !Number.isFinite(trueValue) || trueValue <= 0) {
+    return "-1";
+  }
+
+  return Math.abs(userEstimate - trueValue) / trueValue <= tolerance ? "+1" : "-1";
+}
+
 const configurationUniverse = normalizedData.metaData.hyperparameterLevels
 
 export interface UserContext {

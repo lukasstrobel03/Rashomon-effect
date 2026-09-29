@@ -20,6 +20,8 @@ type EncodingRequest = {
     id: string,
     reward: Reward,
     userInput: string,
+    groundTruth: number,
+    modelPrediction: number,
 }
 
 export interface Context extends Input {
