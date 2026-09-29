@@ -1,5 +1,5 @@
 import {describe, expect, test} from "vitest";
-import {calculateBonusAmount, calculateBonusPercentage, getRelativeError} from "./bonus";
+import {calculateBonusAmount, calculateBonusPercentage, getAllowedDifference, getRelativeError, isWithinTolerance} from "./bonus";
 
 const rounds = (estimate: number, groundTruth = 100) =>
   Array.from({length: 10}, () => ({userEstimate: estimate, groundTruth}));
@@ -34,5 +34,12 @@ describe("relative bonus", () => {
   test("uses relative rather than absolute error", () => {
     expect(getRelativeError(1050, 1000)).toBe(0.05);
     expect(getRelativeError(105, 100)).toBe(0.05);
+  });
+
+  test("uses a two-bike minimum tolerance for small ground truths", () => {
+    expect(getAllowedDifference(10, 0.20)).toBe(2);
+    expect(isWithinTolerance(8, 10, 0.20)).toBe(true);
+    expect(isWithinTolerance(12, 10, 0.20)).toBe(true);
+    expect(isWithinTolerance(7, 10, 0.20)).toBe(false);
   });
 });

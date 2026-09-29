@@ -9,6 +9,24 @@ export const BONUS_TIERS = [
   {maximumRelativeError: 0.20, bonusPercentage: 0.30},
 ] as const;
 
+export const MINIMUM_ABSOLUTE_TOLERANCE = 2;
+
+export function getAllowedDifference(groundTruth: number, relativeTolerance: number): number {
+  return Math.max(MINIMUM_ABSOLUTE_TOLERANCE, Math.abs(groundTruth) * relativeTolerance);
+}
+
+export function isWithinTolerance(
+  userEstimate: number,
+  groundTruth: number,
+  relativeTolerance: number,
+): boolean {
+  if (!Number.isFinite(userEstimate) || !Number.isFinite(groundTruth) || groundTruth <= 0) {
+    return false;
+  }
+
+  return Math.abs(userEstimate - groundTruth) <= getAllowedDifference(groundTruth, relativeTolerance);
+}
+
 export function getRelativeError(userEstimate: number, groundTruth: number): number {
   if (!Number.isFinite(userEstimate) || !Number.isFinite(groundTruth) || groundTruth <= 0) {
     return Number.POSITIVE_INFINITY;
@@ -20,12 +38,10 @@ export function getRelativeError(userEstimate: number, groundTruth: number): num
 export function calculateBonusPercentage(rounds: PredictionRound[]): number {
   if (rounds.length === 0) return 0;
 
-  const relativeErrors = rounds.map(({userEstimate, groundTruth}) =>
-    getRelativeError(userEstimate, groundTruth)
-  );
-
   const tier = BONUS_TIERS.find(({maximumRelativeError}) =>
-    relativeErrors.every((error) => error <= maximumRelativeError)
+    rounds.every(({userEstimate, groundTruth}) =>
+      isWithinTolerance(userEstimate, groundTruth, maximumRelativeError)
+    )
   );
 
   return tier?.bonusPercentage ?? 0;

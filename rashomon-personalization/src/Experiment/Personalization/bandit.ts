@@ -1,6 +1,7 @@
 import gaussian from "gaussian";
 import { assembleFeatureEncoding, cumulativeSum, offsets } from "./utils";
 import {normalizedData} from "./data.tsx";
+import {isWithinTolerance} from "../bonus.ts";
 
 export type Encoding = number[]
 
@@ -20,7 +21,7 @@ export function getRewardFromRelativeDifference(userEstimate: number, trueValue:
     return "-1";
   }
 
-  return Math.abs(userEstimate - trueValue) / trueValue <= tolerance ? "+1" : "-1";
+  return isWithinTolerance(userEstimate, trueValue, tolerance) ? "+1" : "-1";
 }
 
 const configurationUniverse = normalizedData.metaData.hyperparameterLevels

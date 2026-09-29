@@ -11,7 +11,7 @@ import {Input} from "../stateMachine.ts";
 import {Context} from "./stateMachine.ts";
 import PredictionQuestion from "../../utils/PredictionQuestion/PredictionQuestion.tsx";
 import {Reward, getRewardFromRelativeDifference} from "./bandit.ts";
-import {calculateBonusAmount} from "../bonus.ts";
+import {calculateBonusAmount, getAllowedDifference} from "../bonus.ts";
 import styles from "./index.module.css";
 import MarkdownBox from "../../utils/MarkdownBox/MarkdownBox.tsx";
 
@@ -35,8 +35,8 @@ interface RewardPopupProps {
 
 const RewardPopup: React.FC<RewardPopupProps> = ({ reward, closePopup, estimate, groundTruth, modelPrediction, bonusAmount, roundCount }) => {
     const diff = Math.abs(estimate - groundTruth);
-    const estimationDiff = Math.abs(0.2 * groundTruth)
-    const isGoodEstimate = diff < estimationDiff;
+    const estimationDiff = getAllowedDifference(groundTruth, 0.20)
+    const isGoodEstimate = diff <= estimationDiff;
     const successMessage = isGoodEstimate ?
         `### Your Estimate is off by less than ${estimationDiff} bikes. +1 Point.` :
         `### Your estimate is off by more than ${estimationDiff} bikes. 0 Points.`;

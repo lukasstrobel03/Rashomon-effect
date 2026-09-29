@@ -11,6 +11,7 @@ import {DashboardData} from "../../Experiment/Personalization/data.tsx";
 const formSchema = Yup.object().shape({
     estimate: Yup.number()
         .required("Input required.")
+    .min(0, "Please enter a non-negative number.")
         .typeError("Please enter a valid number.")
 });
 
