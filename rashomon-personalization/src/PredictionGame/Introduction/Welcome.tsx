@@ -17,13 +17,11 @@ interactive experience where your choices matter.
 
 ## Compensation
 - £3 base compensation plus an additional performance bonus of  £3. 
+- [Thresholds for extra compensation]
 
 ## Study Structure
-1. Introduction to Role and AI prediction model (5 min). Be attentive to perform well in your final task. 
-2. AI Tool Customization (5 min). The better you customize your AI prediction model, the better you can perform your 
-final task.
-3. Generating Insights (5-10 min). You can double your compensation if you are among the top 25% of participants.
-4. Post-survey questionnaire (2-5 min).
+1. Generating Insights (10-15 min). You can double your compensation if your prediction is within a certain threshold.
+2. Post-survey questionnaire (2-5 min).
 
 ## Important Requirements
 - Complete all sections in one sitting

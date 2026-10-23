@@ -8,6 +8,7 @@ const mergedData: any = {
 for (const path in dataModules) {
   const mod = dataModules[path].default || dataModules[path];
   if (!mod.metaData || !mod.configurationData) continue;
+  const modelClass = path.match(/plot_data_([^_]+)_/i)?.[1]?.toLowerCase();
   
   for (const [hp, levels] of Object.entries(mod.metaData.hyperparameterLevels)) {
     if (!mergedData.metaData.hyperparameterLevels[hp]) {
@@ -15,7 +16,13 @@ for (const path in dataModules) {
     }
     (levels as string[]).forEach((l: string) => mergedData.metaData.hyperparameterLevels[hp].add(l));
   }
-  Object.assign(mergedData.configurationData, mod.configurationData);
+  Object.entries(mod.configurationData).forEach(([configuration, value]) => {
+    const configurationData = value as {plotData: Array<DashboardData>; score: number};
+    mergedData.configurationData[configuration] = {
+      ...configurationData,
+      ...(modelClass ? {modelClass} : {}),
+    };
+  });
 }
 
 for (const hp in mergedData.metaData.hyperparameterLevels) {
@@ -43,7 +50,11 @@ export interface DashboardData {
   y_name: string;
 }
 
-export type DashboardDataByConfiguration = Record<string, {plotData: Array<DashboardData>; score: number;}>
+export type DashboardDataByConfiguration = Record<string, {
+  plotData: Array<DashboardData>;
+  score: number;
+  modelClass?: string;
+}>
 export type HyperParameterLevels = Record<string, string[]>
 
 

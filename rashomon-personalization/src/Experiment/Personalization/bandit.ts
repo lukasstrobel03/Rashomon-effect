@@ -16,7 +16,7 @@ export function getRewardFromDifference(userEstimate: number, trueValue: number,
   return difference < tolerance ? "+1" : "-1";
 }
 
-export function getRewardFromRelativeDifference(userEstimate: number, trueValue: number, tolerance = 0.20): Reward {
+export function getRewardFromAbsoluteDifference(userEstimate: number, trueValue: number, tolerance = 100): Reward {
   if (!Number.isFinite(userEstimate) || !Number.isFinite(trueValue) || trueValue <= 0) {
     return "-1";
   }
@@ -106,6 +106,7 @@ function dotProd(x: number[], y: number[]) {
   } else {
     return x.reduce((acc, key, index) => acc + key * y[index], 0);
   }
+
 }
 
 function argMax(array: number[]): number {
@@ -120,8 +121,12 @@ function sampleMultiVariateNormal(mu: number[], sigma2: number[]): number[] {
   }, [] as number[]);
 }
 
+function sampledParameters(context: UserContext, sample: boolean): number[] {
+  return sample ? sampleMultiVariateNormal(context.mu, context.sigma2) : context.mu;
+}
+
 export function selectEncoding(context: UserContext, selectFromSample: boolean): Encoding {
-  const mu = selectFromSample ? sampleMultiVariateNormal(context.mu, context.sigma2) : context.mu
+  const mu = sampledParameters(context, selectFromSample)
   const cumulativeOffsets = cumulativeSum(offsets(configurationUniverse));
   const absoluteConfigurationPositions = [
     0,
@@ -130,5 +135,20 @@ export function selectEncoding(context: UserContext, selectFromSample: boolean):
   return assembleFeatureEncoding(
     cumulativeOffsets[cumulativeOffsets.length - 1],
     absoluteConfigurationPositions,
+  );
+}
+
+export function selectBestEncoding(
+  context: UserContext,
+  availableEncodings: Encoding[],
+  selectFromSample: boolean,
+): Encoding {
+  if (availableEncodings.length === 0) {
+    throw new Error("No dashboard configurations available for personalization.");
+  }
+
+  const parameters = sampledParameters(context, selectFromSample);
+  return availableEncodings.reduce((best, encoding) =>
+    dotProd(encoding, parameters) > dotProd(best, parameters) ? encoding : best
   );
 }

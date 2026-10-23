@@ -1,5 +1,5 @@
 import {createMachine, assign, not} from "xstate";
-import {type Encoding, type UserContext, type Reward, updateContext, selectEncoding, initializeContext} from "./bandit.ts";
+import {type Encoding, type UserContext, type Reward, updateContext, selectBestEncoding, initializeContext} from "./bandit.ts";
 import {type DashboardDataByConfiguration, normalizedData} from "./data.tsx";
 import {v4 as uuid4} from "uuid";
 import {AnalyticsEvent, sendAnalyticsEvent} from "../analytics.ts";
@@ -39,6 +39,21 @@ export interface MachineTypes {
 
 const configurationLookup = normalizedData.configurationData
 
+function getSelectedHyperparameters(encoding: Encoding): Record<string, string | null> {
+    let offset = 0;
+    return Object.entries(normalizedData.metaData.hyperparameterLevels).reduce(
+        (selected, [name, levels]) => {
+            const selectedIndex = encoding
+                .slice(offset, offset + levels.length)
+                .findIndex((value) => value === 1);
+            selected[name] = selectedIndex >= 0 ? levels[selectedIndex] : null;
+            offset += levels.length;
+            return selected;
+        },
+        {} as Record<string, string | null>,
+    );
+}
+
 const selectFromRashomonSet = (
     userContext: UserContext,
     configurationLookup: DashboardDataByConfiguration,
@@ -49,21 +64,17 @@ const selectFromRashomonSet = (
         throw new Error("No dashboard configurations available for personalization.");
     }
 
-    const maxAttempts = 1000;
-    for (let attempt = 0; attempt < maxAttempts; attempt++) {
-        const encodingCandidate = selectEncoding(userContext, selectFromSample || attempt > 0);
-        if (Object.prototype.hasOwnProperty.call(configurationLookup, JSON.stringify(encodingCandidate))) {
-            return encodingCandidate;
-        }
-    }
-
-    return JSON.parse(availableEncodings[Math.floor(Math.random() * availableEncodings.length)]) as Encoding;
+    const validEncodings = availableEncodings.map((configuration) =>
+        JSON.parse(configuration) as Encoding
+    );
+    return selectBestEncoding(userContext, validEncodings, selectFromSample);
 }
 
 export const stateMachine = createMachine(
   {
     id: "Personalization",
     initial: "WaitForEncodingRequest",
+    entry: {type: "logConfigurationSelection"},
     context: ({input}) => {
         const attentionCheckRounds = [4]
         return ({
@@ -118,7 +129,8 @@ export const stateMachine = createMachine(
                                   // todo - make it more obvious when what round is taking place
                                   const isAttentionCheckRound = context.attentionCheckRounds.includes(context.responseStack.length)
                                   const isAttentionCheckFollowRound = context.attentionCheckRounds.includes(context.responseStack.length-1)
-                                  const isUpdateRound = isTreatmentGroup && !isAttentionCheckFollowRound
+                                  const isUpdateRound =
+                                      isTreatmentGroup && !context.responseStack[0].isAttentionCheck
 
                                   const userContext : UserContext = isUpdateRound ?
                                       updateContext(
@@ -127,7 +139,7 @@ export const stateMachine = createMachine(
                                           context.requestStack[0].reward,
                                       ) : context.responseStack[0].userContext
 
-                                  const isLastRound = context.requestStack.length > context.numPersonalizationRounds
+                                  const isLastRound = context.requestStack.length >= context.numPersonalizationRounds
                                   const encoding = isAttentionCheckFollowRound ? context.responseStack[0].encoding : selectFromRashomonSet(userContext, configurationLookup, !isLastRound)
 
                                   return {
@@ -140,6 +152,7 @@ export const stateMachine = createMachine(
                               })(),
                               ...context.responseStack]
                       }),
+                      {type: "logConfigurationSelection"},
                       { type: "logEvent" }
                   ],
                   target: "CheckIfCompleted"
@@ -173,6 +186,29 @@ export const stateMachine = createMachine(
   },
   {
     actions: {
+        logConfigurationSelection: async ({context}) => {
+            const selectedResponse = context.responseStack[0];
+            const configurationKey = JSON.stringify(selectedResponse.encoding);
+            const configuration = configurationLookup[configurationKey];
+
+            await sendAnalyticsEvent({
+                userId: context.userId,
+                experimentTag: context.experimentTag,
+                commitHash: context.commitHash,
+                type: "BanditConfigurationSelected",
+                payload: {
+                    roundNumber: context.responseStack.length,
+                    configurationKey,
+                    encoding: selectedResponse.encoding,
+                    modelClass: configuration?.modelClass ?? null,
+                    hyperparameters: getSelectedHyperparameters(selectedResponse.encoding),
+                    isUpdateRound: selectedResponse.isUpdateRound,
+                    isAttentionCheck: selectedResponse.isAttentionCheck,
+                    isFinalModel: context.requestStack.length >= context.numPersonalizationRounds,
+                },
+                group: context.group,
+            } satisfies AnalyticsEvent);
+        },
         logEvent: async ({event, context}) => {
             await sendAnalyticsEvent({
                     userId: context.userId,

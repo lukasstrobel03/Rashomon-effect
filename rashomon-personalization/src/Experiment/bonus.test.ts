@@ -1,10 +1,10 @@
 import {describe, expect, test} from "vitest";
-import {calculateBonusAmount, calculateBonusPercentage, getAllowedDifference, getRelativeError, isWithinTolerance} from "./bonus";
+import {calculateBonusAmount, calculateBonusPercentage, isWithinTolerance} from "./bonus";
 
 const rounds = (estimate: number, groundTruth = 100) =>
   Array.from({length: 10}, () => ({userEstimate: estimate, groundTruth}));
 
-describe("relative bonus", () => {
+describe("absolute bonus", () => {
   test("supports a variable number of completed rounds", () => {
     expect(calculateBonusPercentage(rounds(100).slice(0, 9))).toBe(1);
     expect(calculateBonusPercentage([...rounds(100), ...rounds(100).slice(0, 2)])).toBe(1);
@@ -12,34 +12,37 @@ describe("relative bonus", () => {
     expect(calculateBonusPercentage([])).toBe(0);
   });
 
-  test("pays 100 percent when every round is within five percent", () => {
-    expect(calculateBonusPercentage(rounds(105))).toBe(1);
+  test("pays 100 percent when every round is within 25 bikes", () => {
+    expect(calculateBonusPercentage(rounds(125))).toBe(1);
   });
 
-  test("pays 60 percent when five percent is exceeded but ten percent is met", () => {
-    expect(calculateBonusPercentage(rounds(110))).toBe(0.6);
+  test("pays 60 percent when 25 bikes is exceeded but 50 bikes is met", () => {
+    expect(calculateBonusPercentage(rounds(150))).toBe(0.6);
   });
 
-  test("pays 30 percent when ten percent is exceeded but twenty percent is met", () => {
-    expect(calculateBonusPercentage(rounds(120))).toBe(0.3);
-    expect(calculateBonusAmount(7, rounds(120))).toBe(2.1);
+  test("pays 30 percent per round when 50 bikes is exceeded but 100 bikes is met", () => {
+    expect(calculateBonusPercentage(rounds(200))).toBe(0.3);
+    expect(calculateBonusAmount(7, rounds(200))).toBe(21);
   });
 
-  test("pays no bonus when one round exceeds twenty percent", () => {
-    const mixedRounds = rounds(105);
-    mixedRounds[9] = {userEstimate: 121, groundTruth: 100};
+  test("pays no bonus when one round exceeds 100 bikes", () => {
+    const mixedRounds = rounds(125);
+    mixedRounds[9] = {userEstimate: 201, groundTruth: 100};
     expect(calculateBonusPercentage(mixedRounds)).toBe(0);
   });
 
-  test("uses relative rather than absolute error", () => {
-    expect(getRelativeError(1050, 1000)).toBe(0.05);
-    expect(getRelativeError(105, 100)).toBe(0.05);
+  test("accumulates the bonus for each round", () => {
+    expect(calculateBonusAmount(7, [
+      {userEstimate: 100, groundTruth: 100},
+      {userEstimate: 150, groundTruth: 100},
+      {userEstimate: 200, groundTruth: 100},
+      {userEstimate: 300, groundTruth: 100},
+    ])).toBe(13.3);
   });
 
-  test("uses a two-bike minimum tolerance for small ground truths", () => {
-    expect(getAllowedDifference(10, 0.20)).toBe(2);
-    expect(isWithinTolerance(8, 10, 0.20)).toBe(true);
-    expect(isWithinTolerance(12, 10, 0.20)).toBe(true);
-    expect(isWithinTolerance(7, 10, 0.20)).toBe(false);
+  test("uses the same fixed tolerance for different ground truths", () => {
+    expect(isWithinTolerance(1025, 1000, 25)).toBe(true);
+    expect(isWithinTolerance(125, 100, 25)).toBe(true);
+    expect(isWithinTolerance(127, 100, 25)).toBe(false);
   });
 });
