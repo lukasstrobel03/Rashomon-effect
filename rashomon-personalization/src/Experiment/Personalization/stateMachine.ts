@@ -12,6 +12,7 @@ type EncodingResponse = {
     id: string,
     userContext: UserContext,
     encoding: Encoding,
+    bestEncoding: Encoding,
     isUpdateRound: boolean,
     isAttentionCheck: boolean,
 }
@@ -38,6 +39,9 @@ export interface MachineTypes {
 }
 
 const configurationLookup = normalizedData.configurationData
+const MINIMUM_BANDIT_ROUNDS = 8;
+const MAXIMUM_BANDIT_ROUNDS = 20;
+const STABLE_BEST_ENCODING_ROUNDS = 3;
 
 function getSelectedHyperparameters(encoding: Encoding): Record<string, string | null> {
     let offset = 0;
@@ -52,6 +56,25 @@ function getSelectedHyperparameters(encoding: Encoding): Record<string, string |
         },
         {} as Record<string, string | null>,
     );
+}
+
+function encodingsMatch(left: Encoding, right: Encoding): boolean {
+    return left.length === right.length && left.every((value, index) => value === right[index]);
+}
+
+function hasConverged(
+    responseStack: Array<Pick<EncodingResponse, "bestEncoding">>,
+    completedRounds: number,
+): boolean {
+    if (completedRounds < MINIMUM_BANDIT_ROUNDS || responseStack.length < STABLE_BEST_ENCODING_ROUNDS) {
+        return false;
+    }
+
+    const [currentBest, ...previousBests] = responseStack
+        .slice(0, STABLE_BEST_ENCODING_ROUNDS)
+        .map((response) => response.bestEncoding);
+
+    return previousBests.every((bestEncoding) => encodingsMatch(currentBest, bestEncoding));
 }
 
 const selectFromRashomonSet = (
@@ -79,7 +102,7 @@ export const stateMachine = createMachine(
         const attentionCheckRounds = [4]
         return ({
             ...input,
-            numPersonalizationRounds: 10,
+            numPersonalizationRounds: MAXIMUM_BANDIT_ROUNDS,
             attentionCheckRounds: attentionCheckRounds,
             responseStack: [
                 (()=> {
@@ -88,6 +111,7 @@ export const stateMachine = createMachine(
                         id: uuid4(),
                         userContext: initialContext,
                         encoding: selectFromRashomonSet(initialContext, configurationLookup, true),
+                        bestEncoding: selectFromRashomonSet(initialContext, configurationLookup, false),
                         isUpdateRound: input.group==="Treatment", // should be isControlGroup
                         isAttentionCheck: attentionCheckRounds.includes(0)
                     }
@@ -140,12 +164,28 @@ export const stateMachine = createMachine(
                                       ) : context.responseStack[0].userContext
 
                                   const isLastRound = context.requestStack.length >= context.numPersonalizationRounds
-                                  const encoding = isAttentionCheckFollowRound ? context.responseStack[0].encoding : selectFromRashomonSet(userContext, configurationLookup, !isLastRound)
+                                  const bestEncoding = selectFromRashomonSet(userContext, configurationLookup, false)
+                                  const nextResponseStack: Array<Pick<EncodingResponse, "bestEncoding">> = [
+                                      {bestEncoding},
+                                      ...context.responseStack,
+                                  ]
+                                  const converged = hasConverged(
+                                      nextResponseStack,
+                                      context.requestStack.length,
+                                  )
+                                  const shouldUseBestEncoding =
+                                      isLastRound || converged
+                                  const encoding = shouldUseBestEncoding
+                                          ? bestEncoding
+                                          : isAttentionCheckFollowRound
+                                              ? context.responseStack[0].encoding
+                                              : selectFromRashomonSet(userContext, configurationLookup, true)
 
                                   return {
                                       id: uuid4(),
                                       userContext: userContext,
                                       encoding: encoding,
+                                      bestEncoding,
                                       isUpdateRound: isUpdateRound,
                                       isAttentionCheck: isAttentionCheckRound
                                   }
@@ -160,6 +200,13 @@ export const stateMachine = createMachine(
       },
       CheckIfCompleted: {
           always: [
+              {
+                  guard: "banditConverged",
+                  target: "Terminus",
+                  actions: [
+                      { type: "logEvent" }
+                  ]
+              },
               {
                   guard: not("allRoundsCompleted"),
                   target: "WaitForEncodingRequest",
@@ -222,6 +269,9 @@ export const stateMachine = createMachine(
     },
     actors: {},
     guards: {
+        banditConverged: ({context}) =>
+            hasConverged(context.responseStack, context.requestStack.length) ||
+            context.requestStack.length >= context.numPersonalizationRounds,
         allRoundsCompleted: ({context}) =>
             context.responseStack.length > context.numPersonalizationRounds
     },

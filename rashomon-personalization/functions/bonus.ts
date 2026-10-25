@@ -1,4 +1,9 @@
-import {calculateBonusAmount, calculateBonusPercentage, type PredictionRound} from "../src/Experiment/bonus";
+import {
+    calculateAverageBonusPercentage,
+    calculateBonusAmount,
+    calculateRoundBonusPercentage,
+    type PredictionRound,
+} from "../src/Experiment/bonus";
 
 interface Env {
     AnalyticsStore: D1Database;
@@ -56,7 +61,8 @@ export const onRequestPost: PagesFunction<Env> = async ({request, env}) => {
         });
     }
 
-    const bonusPercentage = calculateBonusPercentage(body.rounds);
+    const roundPercentages = body.rounds.map(calculateRoundBonusPercentage);
+    const averageBonusPercentage = calculateAverageBonusPercentage(body.rounds);
     const bonusAmount = calculateBonusAmount(baseCompensation, body.rounds);
     const absoluteErrors = body.rounds.map(({userEstimate, groundTruth}) =>
         Math.abs(userEstimate - groundTruth)
@@ -65,15 +71,17 @@ export const onRequestPost: PagesFunction<Env> = async ({request, env}) => {
 
     await env.AnalyticsStore.prepare(
         `INSERT INTO BonusPayments
-        (userId, prolificId, groupName, roundCount, bonusPercentage, baseCompensation, bonusAmount,
-         currency, absoluteErrors, status, createdAt, updatedAt)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        (userId, prolificId, groupName, roundCount, bonusPercentage, averageBonusPercentage,
+         roundPercentages, baseCompensation, bonusAmount, currency, absoluteErrors, status, createdAt, updatedAt)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).bind(
         body.userId,
         body.prolificId,
         body.group,
         body.rounds.length,
-        bonusPercentage,
+        averageBonusPercentage,
+        averageBonusPercentage,
+        JSON.stringify(roundPercentages),
         baseCompensation,
         bonusAmount,
         currency,

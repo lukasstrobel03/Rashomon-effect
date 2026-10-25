@@ -11,7 +11,7 @@ import {Input} from "../stateMachine.ts";
 import {Context} from "./stateMachine.ts";
 import PredictionQuestion from "../../utils/PredictionQuestion/PredictionQuestion.tsx";
 import {Reward, getRewardFromAbsoluteDifference} from "./bandit.ts";
-import {calculateBonusAmount} from "../bonus.ts";
+import {calculateAverageBonusPercentage, calculateBonusAmount, calculateRoundBonusPercentage} from "../bonus.ts";
 import styles from "./index.module.css";
 import MarkdownBox from "../../utils/MarkdownBox/MarkdownBox.tsx";
 
@@ -27,6 +27,8 @@ interface RewardPopupProps {
     reward: Reward
     estimate: number
     groundTruth: number
+    currentRoundPercentage: number
+    averageBonusPercentage: number
     bonusAmount: number
     roundCount: number
     closePopup: () => void
@@ -37,6 +39,8 @@ const RewardPopup: React.FC<RewardPopupProps> = ({
     closePopup,
     estimate,
     groundTruth,
+    currentRoundPercentage,
+    averageBonusPercentage,
     bonusAmount,
     roundCount,
 }) => {
@@ -48,7 +52,11 @@ Actual Number of Rented Bikes: *${groundTruth}*
 
 Difference Between your Estimate and the Correct Answer: *${diff}*
 
-Current additional compensation: *£${bonusAmount.toFixed(2)}*
+Bonus for this round: *${(currentRoundPercentage * 100).toFixed(0)}%*
+
+Average bonus so far: *${(averageBonusPercentage * 100).toFixed(1)}%*
+
+Estimated additional compensation: *£${bonusAmount.toFixed(2)}*
 
 Accumulated after ${roundCount} round${roundCount === 1 ? "" : "s"}. The final amount is calculated after the last round.
     `;
@@ -79,6 +87,8 @@ const Personalization: React.FC<PersonalizationProps> = ({onNext, machineInput})
     const [reward, setReward] = useState<Reward>("-1");
     const [estimate, setEstimate] = useState<number>(0)
     const [groundTruth, setGroundTruth] = useState<number>(0)
+    const [currentRoundPercentage, setCurrentRoundPercentage] = useState<number>(0)
+    const [averageBonusPercentage, setAverageBonusPercentage] = useState<number>(0)
     const [bonusAmount, setBonusAmount] = useState<number>(0)
     const [roundCount, setRoundCount] = useState<number>(0)
     const [showPopup, setShowPopup] = useState(false);
@@ -105,6 +115,8 @@ const Personalization: React.FC<PersonalizationProps> = ({onNext, machineInput})
             })),
             {userEstimate: estimate, groundTruth},
         ];
+        setCurrentRoundPercentage(calculateRoundBonusPercentage({userEstimate: estimate, groundTruth}));
+        setAverageBonusPercentage(calculateAverageBonusPercentage(completedRounds));
         setBonusAmount(calculateBonusAmount(BASE_COMPENSATION, completedRounds));
         setRoundCount(completedRounds.length);
 
@@ -153,6 +165,8 @@ const Personalization: React.FC<PersonalizationProps> = ({onNext, machineInput})
                     closePopup={closePopup}
                     estimate={estimate}
                     groundTruth={groundTruth}
+                    currentRoundPercentage={currentRoundPercentage}
+                    averageBonusPercentage={averageBonusPercentage}
                     bonusAmount={bonusAmount}
                     roundCount={roundCount}
                 />}

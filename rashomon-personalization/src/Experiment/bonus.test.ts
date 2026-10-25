@@ -1,5 +1,11 @@
 import {describe, expect, test} from "vitest";
-import {calculateBonusAmount, calculateBonusPercentage, isWithinTolerance} from "./bonus";
+import {
+  calculateAverageBonusPercentage,
+  calculateBonusAmount,
+  calculateBonusPercentage,
+  calculateRoundBonusPercentage,
+  isWithinTolerance,
+} from "./bonus";
 
 const rounds = (estimate: number, groundTruth = 100) =>
   Array.from({length: 10}, () => ({userEstimate: estimate, groundTruth}));
@@ -20,9 +26,9 @@ describe("absolute bonus", () => {
     expect(calculateBonusPercentage(rounds(150))).toBe(0.6);
   });
 
-  test("pays 30 percent per round when 50 bikes is exceeded but 100 bikes is met", () => {
+  test("calculates the current round percentage", () => {
     expect(calculateBonusPercentage(rounds(200))).toBe(0.3);
-    expect(calculateBonusAmount(7, rounds(200))).toBe(21);
+    expect(calculateRoundBonusPercentage({userEstimate: 200, groundTruth: 100})).toBe(0.3);
   });
 
   test("pays no bonus when one round exceeds 100 bikes", () => {
@@ -31,13 +37,15 @@ describe("absolute bonus", () => {
     expect(calculateBonusPercentage(mixedRounds)).toBe(0);
   });
 
-  test("accumulates the bonus for each round", () => {
-    expect(calculateBonusAmount(7, [
+  test("averages round percentages before calculating the bonus", () => {
+    const completedRounds = [
       {userEstimate: 100, groundTruth: 100},
       {userEstimate: 150, groundTruth: 100},
       {userEstimate: 200, groundTruth: 100},
       {userEstimate: 300, groundTruth: 100},
-    ])).toBe(13.3);
+    ];
+    expect(calculateAverageBonusPercentage(completedRounds)).toBeCloseTo(0.475);
+    expect(calculateBonusAmount(7, completedRounds)).toBe(3.33);
   });
 
   test("uses the same fixed tolerance for different ground truths", () => {

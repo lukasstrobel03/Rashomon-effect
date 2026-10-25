@@ -33,13 +33,25 @@ export function calculateBonusPercentage(rounds: PredictionRound[]): number {
   return tier?.bonusPercentage ?? 0;
 }
 
+export function calculateRoundBonusPercentage(round: PredictionRound): number {
+  const tier = BONUS_TIERS.find(({maximumAbsoluteDifference}) =>
+    isWithinTolerance(round.userEstimate, round.groundTruth, maximumAbsoluteDifference)
+  );
+
+  return tier?.bonusPercentage ?? 0;
+}
+
+export function calculateAverageBonusPercentage(rounds: PredictionRound[]): number {
+  if (rounds.length === 0) return 0;
+
+  return rounds.reduce(
+    (total, round) => total + calculateRoundBonusPercentage(round),
+    0,
+  ) / rounds.length;
+}
+
 export function calculateBonusAmount(baseCompensation: number, rounds: PredictionRound[]): number {
   if (!Number.isFinite(baseCompensation) || baseCompensation < 0) return 0;
 
-  const accumulatedBonus = rounds.reduce(
-    (total, round) => total + baseCompensation * calculateBonusPercentage([round]),
-    0,
-  );
-
-  return Number(accumulatedBonus.toFixed(2));
+  return Number((baseCompensation * calculateAverageBonusPercentage(rounds)).toFixed(2));
 }
