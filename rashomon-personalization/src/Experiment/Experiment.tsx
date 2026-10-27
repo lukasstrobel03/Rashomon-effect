@@ -6,6 +6,7 @@ import GoodBye from "./GoodBye.tsx";
 import Personalization from "./Personalization/Personalization.tsx";
 import {v4 as uuidv4} from "uuid";
 import {normalizedData} from "./Personalization/data.tsx";
+import {sendAnalyticsEvent} from "./analytics.ts";
 
 interface ExperimentProps {
   initialState: InitialState
@@ -38,23 +39,17 @@ const Experiment: React.FC<ExperimentProps> = ({initialState}) => {
       groundTruth: request.groundTruth,
     }));
 
-    try {
-      const response = await fetch("/bonus", {
-        method: "POST",
-        headers: {"Content-Type": "application/json"},
-        body: JSON.stringify({
-          userId: snapshot.context.userId,
-          prolificId,
-          group: snapshot.context.group,
-          rounds,
-        }),
-      });
-      if (!response.ok) {
-        console.error("Bonus payment request failed:", await response.text());
-      }
-    } catch (error) {
-      console.error("Bonus payment request failed:", error);
-    }
+    await sendAnalyticsEvent({
+      userId: snapshot.context.userId,
+      experimentTag: snapshot.context.experimentTag,
+      commitHash: snapshot.context.commitHash,
+      type: "BonusPaymentRecorded",
+      payload: {
+        prolificId,
+        rounds,
+      },
+      group: snapshot.context.group,
+    });
   };
 
   return (

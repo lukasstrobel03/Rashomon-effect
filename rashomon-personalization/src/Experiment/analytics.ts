@@ -18,6 +18,7 @@ export async function sendAnalyticsEvent(analyticsEvent: AnalyticsEvent) {
         }
     }
     catch (error) {
-        console.error((error as Error).message);
+        console.error(`Analytics event failed: ${(error as Error).message}`);
+        throw error;
   }
 }

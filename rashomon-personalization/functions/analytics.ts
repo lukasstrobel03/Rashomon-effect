@@ -1,7 +1,15 @@
 import {AnalyticsEvent} from "../src/Experiment/analytics";
+import {
+    calculateAverageBonusPercentage,
+    calculateBonusAmount,
+    calculateRoundBonusPercentage,
+    type PredictionRound,
+} from "../src/Experiment/bonus";
 
 interface Env {
     AnalyticsStore: D1Database;
+    BASE_COMPENSATION: string;
+    PROLIFIC_CURRENCY: string;
 }
 
 interface BanditSelectionPayload {
@@ -13,6 +21,11 @@ interface BanditSelectionPayload {
     isUpdateRound: boolean;
     isAttentionCheck: boolean;
     isFinalModel: boolean;
+}
+
+interface BonusPaymentPayload {
+    prolificId: string;
+    rounds: PredictionRound[];
 }
 
 function isBanditSelectionPayload(payload: object): payload is BanditSelectionPayload {
@@ -27,6 +40,20 @@ function isBanditSelectionPayload(payload: object): payload is BanditSelectionPa
         typeof candidate.isUpdateRound === "boolean" &&
         typeof candidate.isAttentionCheck === "boolean" &&
         typeof candidate.isFinalModel === "boolean";
+}
+
+function isPredictionRound(round: PredictionRound): boolean {
+    return Number.isFinite(round.userEstimate) &&
+        Number.isFinite(round.groundTruth) &&
+        round.groundTruth > 0;
+}
+
+function isBonusPaymentPayload(payload: object): payload is BonusPaymentPayload {
+    const candidate = payload as Partial<BonusPaymentPayload>;
+    return typeof candidate.prolificId === "string" &&
+        Array.isArray(candidate.rounds) &&
+        candidate.rounds.length > 0 &&
+        candidate.rounds.every(isPredictionRound);
 }
 
 export const onRequest : PagesFunction<Env>  = async ({request, env}): Promise<Response> => {
@@ -57,6 +84,50 @@ export const onRequest : PagesFunction<Env>  = async ({request, env}): Promise<R
                 selection.isAttentionCheck ? 1 : 0,
                 selection.isFinalModel ? 1 : 0,
             ).run();
+        }
+
+        if (event.type === "BonusPaymentRecorded" && isBonusPaymentPayload(event.payload)) {
+            const existing = await env.AnalyticsStore.prepare(
+                "SELECT userId FROM BonusPayments WHERE userId = ?"
+            ).bind(event.userId).first();
+
+            if (!existing) {
+                const baseCompensation = Number(env.BASE_COMPENSATION);
+                if (!Number.isFinite(baseCompensation) || baseCompensation < 0) {
+                    throw new Error("Bonus payment configuration is incomplete.");
+                }
+
+                const roundPercentages = event.payload.rounds.map(calculateRoundBonusPercentage);
+                const averageBonusPercentage = calculateAverageBonusPercentage(event.payload.rounds);
+                const bonusAmount = calculateBonusAmount(baseCompensation, event.payload.rounds);
+                const absoluteErrors = event.payload.rounds.map(({userEstimate, groundTruth}) =>
+                    Math.abs(userEstimate - groundTruth)
+                );
+                const now = Date.now();
+
+                await env.AnalyticsStore.prepare(
+                    `INSERT INTO BonusPayments
+                    (userId, prolificId, groupName, roundCount, bonusPercentage, averageBonusPercentage,
+                     roundPercentages, baseCompensation, bonusAmount, currency, absoluteErrors, status,
+                     createdAt, updatedAt)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+                ).bind(
+                    event.userId,
+                    event.payload.prolificId,
+                    event.group,
+                    event.payload.rounds.length,
+                    averageBonusPercentage,
+                    averageBonusPercentage,
+                    JSON.stringify(roundPercentages),
+                    baseCompensation,
+                    bonusAmount,
+                    env.PROLIFIC_CURRENCY || "GBP",
+                    JSON.stringify(absoluteErrors),
+                    bonusAmount === 0 ? "no_bonus" : "pending_review",
+                    now,
+                    now,
+                ).run();
+            }
         }
 
         return new Response("Analytics event inserted successfully!", { status: 201 });
