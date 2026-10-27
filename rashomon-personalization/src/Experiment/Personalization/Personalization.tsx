@@ -39,9 +39,9 @@ const RewardPopup: React.FC<RewardPopupProps> = ({
     closePopup,
     estimate,
     groundTruth,
-    currentRoundPercentage,
+    // currentRoundPercentage,
     averageBonusPercentage,
-    bonusAmount,
+    // bonusAmount,
     roundCount,
 }) => {
     const diff = Math.abs(estimate - groundTruth);
@@ -51,8 +51,6 @@ Your Estimate: *${estimate}*
 Actual Number of Rented Bikes: *${groundTruth}*
 
 Difference Between your Estimate and the Correct Answer: *${diff}*
-
-Bonus for this round: *${(currentRoundPercentage * 100).toFixed(0)}%*
 
 Average bonus so far: *${(averageBonusPercentage * 100).toFixed(1)}%*
 
