@@ -8,7 +8,7 @@ export interface AnalyticsEvent {
 }
 
 export async function sendAnalyticsEvent(analyticsEvent: AnalyticsEvent) {
-    console.log("sendAnalyticsEvent called with event", analyticsEvent)
+    console.log("sendAnalyticsEvent called with event", JSON.stringify(analyticsEvent))
     try {
         const response = await fetch("/analytics", {
             method: "POST", body: JSON.stringify(analyticsEvent)

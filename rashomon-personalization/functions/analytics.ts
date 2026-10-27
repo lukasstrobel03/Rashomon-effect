@@ -90,8 +90,7 @@ export const onRequest : PagesFunction<Env>  = async ({request, env}): Promise<R
                 console.error("BanditSelections insert failed:", error);
                 throw new Error(`BanditSelections insert failed: ${(error as Error).message}`);
             }
-        }
-        if (event.type === "BanditConfigurationSelected") {
+        } else if (event.type === "BanditConfigurationSelected") {
             throw new Error("Invalid BanditConfigurationSelected payload.");
         }
 
@@ -117,7 +116,9 @@ export const onRequest : PagesFunction<Env>  = async ({request, env}): Promise<R
                 try {
                     await env.AnalyticsStore.prepare(
                     `INSERT INTO BonusPayments
-                    (userId, prolificId, groupName, roundCount, bonusPercentage, baseCompensation, bonusAmount, currency, absoluteErrors, status, reviewerNotes, prolificBonusId, createdAt, updatedAt, averageBonusPercentage, roundPercentages)
+                    (userId, prolificId, groupName, roundCount, bonusPercentage, averageBonusPercentage,
+                     roundPercentages, baseCompensation, bonusAmount, currency, absoluteErrors, status,
+                     createdAt, updatedAt)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
                     ).bind(
                     event.userId,
@@ -140,9 +141,8 @@ export const onRequest : PagesFunction<Env>  = async ({request, env}): Promise<R
                     throw new Error(`BonusPayments insert failed: ${(error as Error).message}`);
                 }
             }
-            if (event.type === "BonusPaymentRecorded") {
-                throw new Error("Invalid BonusPaymentRecorded payload.");
-            }
+        } else if (event.type === "BonusPaymentRecorded") {
+            throw new Error("Invalid BonusPaymentRecorded payload.");
         }
 
         return new Response("Analytics event inserted successfully!", { status: 201 });
