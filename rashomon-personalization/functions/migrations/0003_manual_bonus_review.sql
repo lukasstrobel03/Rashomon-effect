@@ -1,5 +1,5 @@
 ALTER TABLE BonusPayments
-ADD COLUMN reviewerNotes TEXT;
+ADD COLUMN reviewerNotes;
 
 CREATE VIEW BonusReviewQueue AS
 SELECT

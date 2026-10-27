@@ -16,10 +16,10 @@ SELECT
     bonusAmount,
     currency,
     absoluteErrors,
-    status,
+    reviewStatus,
     reviewerNotes,
     createdAt,
     updatedAt
 FROM BonusPayments
-WHERE status = 'pending_review'
+WHERE reviewStatus = 'pending_review'
 ORDER BY createdAt;

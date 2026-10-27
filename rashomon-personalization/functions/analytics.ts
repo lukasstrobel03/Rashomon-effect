@@ -57,20 +57,22 @@ function isBonusPaymentPayload(payload: object): payload is BonusPaymentPayload 
 }
 
 export const onRequest : PagesFunction<Env>  = async ({request, env}): Promise<Response> => {
+    let event: AnalyticsEvent;
     try {
-        const event: AnalyticsEvent = await request.json();
-        const result = await env.AnalyticsStore.prepare(
+        event = await request.json() as AnalyticsEvent;
+        await env.AnalyticsStore.prepare(
             "INSERT INTO AnalyticsEvents (timestamp, userId, experimentTag, commitHash, type, payload, userGroup) VALUES (?, ?, ?, ?, ?, ?, ?)"
         ).bind(Date.now(), event.userId, event.experimentTag, event.commitHash, event.type, JSON.stringify(event.payload), event.group).run();
 
         if (event.type === "BanditConfigurationSelected" && isBanditSelectionPayload(event.payload)) {
             const selection = event.payload;
-            await env.AnalyticsStore.prepare(
+            try {
+                await env.AnalyticsStore.prepare(
                 `INSERT INTO BanditSelections
                 (timestamp, userId, experimentTag, userGroup, roundNumber, configurationKey,
                  encoding, modelClass, hyperparameters, isUpdateRound, isAttentionCheck, isFinalModel)
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-            ).bind(
+                ).bind(
                 Date.now(),
                 event.userId,
                 event.experimentTag,
@@ -83,7 +85,14 @@ export const onRequest : PagesFunction<Env>  = async ({request, env}): Promise<R
                 selection.isUpdateRound ? 1 : 0,
                 selection.isAttentionCheck ? 1 : 0,
                 selection.isFinalModel ? 1 : 0,
-            ).run();
+                ).run();
+            } catch (error) {
+                console.error("BanditSelections insert failed:", error);
+                throw new Error(`BanditSelections insert failed: ${(error as Error).message}`);
+            }
+        }
+        if (event.type === "BanditConfigurationSelected") {
+            throw new Error("Invalid BanditConfigurationSelected payload.");
         }
 
         if (event.type === "BonusPaymentRecorded" && isBonusPaymentPayload(event.payload)) {
@@ -105,13 +114,12 @@ export const onRequest : PagesFunction<Env>  = async ({request, env}): Promise<R
                 );
                 const now = Date.now();
 
-                await env.AnalyticsStore.prepare(
+                try {
+                    await env.AnalyticsStore.prepare(
                     `INSERT INTO BonusPayments
-                    (userId, prolificId, groupName, roundCount, bonusPercentage, averageBonusPercentage,
-                     roundPercentages, baseCompensation, bonusAmount, currency, absoluteErrors, status,
-                     createdAt, updatedAt)
+                    (userId, prolificId, groupName, roundCount, bonusPercentage, baseCompensation, bonusAmount, currency, absoluteErrors, status, reviewerNotes, prolificBonusId, createdAt, updatedAt, averageBonusPercentage, roundPercentages)
                     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-                ).bind(
+                    ).bind(
                     event.userId,
                     event.payload.prolificId,
                     event.group,
@@ -126,12 +134,20 @@ export const onRequest : PagesFunction<Env>  = async ({request, env}): Promise<R
                     bonusAmount === 0 ? "no_bonus" : "pending_review",
                     now,
                     now,
-                ).run();
+                    ).run();
+                } catch (error) {
+                    console.error("BonusPayments insert failed:", error);
+                    throw new Error(`BonusPayments insert failed: ${(error as Error).message}`);
+                }
+            }
+            if (event.type === "BonusPaymentRecorded") {
+                throw new Error("Invalid BonusPaymentRecorded payload.");
             }
         }
 
         return new Response("Analytics event inserted successfully!", { status: 201 });
     } catch (error) {
+        console.error("Analytics event processing failed:", error);
         return new Response(`Error inserting event: ${(error as Error).message}`, { status: 500 });
     }
 }

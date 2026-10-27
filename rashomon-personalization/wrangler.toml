@@ -1,4 +1,4 @@
-name = "rashomon-personalization"
+name = "rashomon-effect"
 pages_build_output_dir = "dist/"
 
 [[d1_databases]]
