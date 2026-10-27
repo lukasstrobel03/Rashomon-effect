@@ -34,12 +34,14 @@ function isBanditSelectionPayload(payload: object): payload is BanditSelectionPa
         typeof candidate.configurationKey === "string" &&
         Array.isArray(candidate.encoding) &&
         candidate.encoding.every((value) => typeof value === "number") &&
-        (candidate.modelClass === null || typeof candidate.modelClass === "string") &&
+        (candidate.modelClass === undefined ||
+            candidate.modelClass === null ||
+            typeof candidate.modelClass === "string") &&
         typeof candidate.hyperparameters === "object" &&
         candidate.hyperparameters !== null &&
-        typeof candidate.isUpdateRound === "boolean" &&
-        typeof candidate.isAttentionCheck === "boolean" &&
-        typeof candidate.isFinalModel === "boolean";
+        (candidate.isUpdateRound === undefined || typeof candidate.isUpdateRound === "boolean") &&
+        (candidate.isAttentionCheck === undefined || typeof candidate.isAttentionCheck === "boolean") &&
+        (candidate.isFinalModel === undefined || typeof candidate.isFinalModel === "boolean");
 }
 
 function isPredictionRound(round: PredictionRound): boolean {
@@ -80,7 +82,7 @@ export const onRequest : PagesFunction<Env>  = async ({request, env}): Promise<R
                 selection.roundNumber,
                 selection.configurationKey,
                 JSON.stringify(selection.encoding),
-                selection.modelClass,
+                selection.modelClass ?? null,
                 JSON.stringify(selection.hyperparameters),
                 selection.isUpdateRound ? 1 : 0,
                 selection.isAttentionCheck ? 1 : 0,
@@ -91,6 +93,7 @@ export const onRequest : PagesFunction<Env>  = async ({request, env}): Promise<R
                 throw new Error(`BanditSelections insert failed: ${(error as Error).message}`);
             }
         } else if (event.type === "BanditConfigurationSelected") {
+            console.error("Invalid BanditConfigurationSelected payload:", JSON.stringify(event.payload));
             throw new Error("Invalid BanditConfigurationSelected payload.");
         }
 
