@@ -14,7 +14,10 @@ export async function sendAnalyticsEvent(analyticsEvent: AnalyticsEvent) {
             method: "POST", body: JSON.stringify(analyticsEvent)
         })
         if (!response.ok) {
-            throw new Error(`Response status: ${response.status}`);
+            const responseBody = await response.text();
+            throw new Error(
+                `Analytics request failed with status ${response.status}: ${responseBody || "empty response"}`
+            );
         }
     }
     catch (error) {
