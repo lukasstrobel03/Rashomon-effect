@@ -56,7 +56,6 @@ Bonus for this round: *${(currentRoundPercentage * 100).toFixed(0)}%*
 
 Average bonus so far: *${(averageBonusPercentage * 100).toFixed(1)}%*
 
-Estimated additional compensation: *£${bonusAmount.toFixed(2)}*
 
 Accumulated after ${roundCount} round${roundCount === 1 ? "" : "s"}. The final amount is calculated after the last round.
     `;
