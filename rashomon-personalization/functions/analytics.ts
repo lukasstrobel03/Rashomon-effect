@@ -63,7 +63,7 @@ export const onRequest : PagesFunction<Env>  = async ({request, env}): Promise<R
         await env.AnalyticsStore.prepare(
             "INSERT INTO AnalyticsEvents (timestamp, userId, experimentTag, commitHash, type, payload, userGroup) VALUES (?, ?, ?, ?, ?, ?, ?)"
         ).bind(Date.now(), event.userId, event.experimentTag, event.commitHash, event.type, JSON.stringify(event.payload), event.group).run();
-
+        console.log(event.type)
         if (event.type === "BanditConfigurationSelected" && isBanditSelectionPayload(event.payload)) {
             const selection = event.payload;
             try {
